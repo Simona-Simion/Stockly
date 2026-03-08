@@ -28,11 +28,11 @@ Curso: 2025-2026
 
 ---
 
-## Estructura real del proyecto (paquete base: com.horecastock.api)
+## Estructura real del proyecto (paquete base: com.stockly.api)
 
 ### Backend ya creado
 ```
-src/main/java/com/horecastock/api/
+src/main/java/com/stockly/api/
 ├── config/
 │   └── CorsConfig.java                  ✅ Hecho
 ├── controller/
@@ -66,7 +66,7 @@ src/main/java/com/horecastock/api/
 │   │   ├── ProductoServiceImpl.java     ✅ Hecho (falta borrado lógico)
 │   │   └── VentaServiceImpl.java        ⚠️ Bug crítico — ver correcciones
 │   └── (interfaces)                     ✅ Todo hecho
-└── HorecasSockApplication.java          ✅ Hecho
+└── StocklyApplication.java          ✅ Hecho
 ```
 
 ### Lo que falta crear en el backend
@@ -462,11 +462,11 @@ application-local.properties
 
 ## Notas importantes para Claude Code
 
-1. El paquete base del proyecto es com.horecastock.api — no cambiarlo.
+1. El paquete base del proyecto es com.stockly.api — no cambiarlo.
 2. El proyecto usa Lombok — usar @Data, @Builder, @RequiredArgsConstructor.
 3. Spring Boot 3.5.x — usar jakarta.* no javax.*.
 4. La entidad Producto ya tiene campo activo — usarlo para borrado lógico.
 5. El EscandalloService es el módulo más crítico — revisarlo con especial atención.
 6. No crear nuevas entidades sin consultar este CLAUDE.md primero.
 7. Siempre que se modifique stock, registrar MovimientoStock.
-8. Los tests van en src/test/java/com/horecastock/api/service/
+8. Los tests van en src/test/java/com/stockly/api/service/

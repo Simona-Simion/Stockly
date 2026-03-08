@@ -74,7 +74,7 @@ con el paquete http o Dio.
 ### Las capas del backend y para qué sirve cada una
 
 ```
-com.horecastock.api/
+com.stockly.api/
 ├── model/       → Las entidades: representan las tablas de la base de datos
 ├── repository/  → El acceso a datos: consultas a la base de datos
 ├── service/     → La lógica de negocio: las reglas del programa
@@ -1654,7 +1654,7 @@ El módulo de escandallo es el más crítico del sistema. Un bug aquí significa
 Los tests garantizan que la lógica funciona antes de probarla en producción.
 
 **Estructura del fichero de tests:**
-`src/test/java/com/horecastock/api/service/EscandalloServiceTest.java`
+`src/test/java/com/stockly/api/service/EscandalloServiceTest.java`
 
 #### Test 1 — `ventaCorrecta_debeDescontarStockDeTodosLosIngredientes`
 

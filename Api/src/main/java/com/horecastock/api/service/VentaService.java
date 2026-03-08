@@ -1,10 +1,13 @@
 package com.horecastock.api.service;
 
+import com.horecastock.api.dto.VentaEscandalloRequest;
+import com.horecastock.api.model.Venta;
 
-
-import com.horecastock.api.dto.VentaRequest;
+import java.util.List;
 
 public interface VentaService {
 
-    void registrarVenta(VentaRequest request);
+    Venta registrarVenta(VentaEscandalloRequest request);
+
+    List<Venta> listarVentas();
 }

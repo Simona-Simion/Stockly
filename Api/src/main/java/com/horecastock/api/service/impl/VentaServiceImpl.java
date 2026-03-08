@@ -1,67 +1,62 @@
 package com.horecastock.api.service.impl;
 
-import com.horecastock.api.dto.VentaRequest;
-import com.horecastock.api.model.MovimientoStock;
-import com.horecastock.api.model.Producto;
+import com.horecastock.api.dto.VentaEscandalloRequest;
+import com.horecastock.api.exception.ResourceNotFoundException;
+import com.horecastock.api.model.Receta;
 import com.horecastock.api.model.Venta;
-import com.horecastock.api.repository.MovimientoStockRepository;
-import com.horecastock.api.repository.ProductoRepository;
+import com.horecastock.api.repository.RecetaRepository;
 import com.horecastock.api.repository.VentaRepository;
+import com.horecastock.api.service.EscandalloService;
 import com.horecastock.api.service.VentaService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
+@RequiredArgsConstructor
 public class VentaServiceImpl implements VentaService {
 
-    private final ProductoRepository productoRepository;
+    private final RecetaRepository recetaRepository;
     private final VentaRepository ventaRepository;
-    private final MovimientoStockRepository movimientoStockRepository;
-
-    public VentaServiceImpl(ProductoRepository productoRepository,
-                            VentaRepository ventaRepository,
-                            MovimientoStockRepository movimientoStockRepository) {
-        this.productoRepository = productoRepository;
-        this.ventaRepository = ventaRepository;
-        this.movimientoStockRepository = movimientoStockRepository;
-    }
+    private final EscandalloService escandalloService;
 
     @Override
     @Transactional
-    public void registrarVenta(VentaRequest request) {
+    public Venta registrarVenta(VentaEscandalloRequest request) {
 
-        // 1. Buscar el producto
-        Producto producto = productoRepository.findById(request.getIdProducto())
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+        // 1. Buscar la receta
+        Receta receta = recetaRepository.findById(request.getRecetaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Receta", "id", request.getRecetaId()));
 
-        // 2. Calcular precio total
-        double precioTotal = producto.getPrecioUnidad() * request.getCantidad();
-
-        // 3. Crear la venta
-        Venta venta = new Venta();
-        venta.setProducto(producto);
-        venta.setCantidad(request.getCantidad());
-        venta.setPrecioTotal(precioTotal);
-
-        ventaRepository.save(venta);
-
-        // 4. Bajar el stock
-        double nuevoStock = producto.getStockActual() - request.getCantidad();
-
-        if (nuevoStock < 0) {
-            throw new RuntimeException("No hay suficiente stock para realizar la venta");
+        // 2. Verificar que la receta está activa
+        if (!receta.getActivo()) {
+            throw new RuntimeException("La receta '" + receta.getNombre() + "' no está activa");
         }
 
-        producto.setStockActual(nuevoStock);
-        productoRepository.save(producto);
+        // 3. Determinar origen (por defecto MANUAL)
+        String origen = (request.getOrigen() != null && !request.getOrigen().isBlank())
+                ? request.getOrigen()
+                : "MANUAL";
 
-        // 5. Registrar movimiento de stock
-        MovimientoStock movimiento = new MovimientoStock();
-        movimiento.setProducto(producto);
-        movimiento.setTipo("VENTA");
-        movimiento.setCantidad(request.getCantidad().doubleValue());
-        movimiento.setOrigen("VENTA");
+        // 4. Aplicar escandallo: valida stock de todos los ingredientes y descuenta.
+        //    Si hay stock insuficiente lanza StockInsuficienteException → rollback completo.
+        escandalloService.aplicarEscandallo(receta, request.getCantidad(), origen);
 
-        movimientoStockRepository.save(movimiento);
+        // 5. Crear y persistir la venta
+        Venta venta = new Venta();
+        venta.setReceta(receta);
+        venta.setCantidad(request.getCantidad());
+        venta.setPrecioTotal(receta.getPrecioVenta() * request.getCantidad());
+        venta.setOrigen(origen);
+
+        return ventaRepository.save(venta);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Venta> listarVentas() {
+        return ventaRepository.findAll();
     }
 }

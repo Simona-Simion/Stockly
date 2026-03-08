@@ -17,7 +17,7 @@ import java.util.UUID;
 public class Producto {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue
     private UUID id;
 
     @NotBlank(message = "El nombre es obligatorio")
@@ -55,10 +55,7 @@ public class Producto {
     @Column(name = "activo")
     private Boolean activo = true;
 
-    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
-    private List<Venta> ventas;
-
+    // Historial de movimientos de stock de este producto
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<MovimientoStock> movimientosStock;

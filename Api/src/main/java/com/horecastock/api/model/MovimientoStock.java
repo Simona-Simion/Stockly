@@ -22,6 +22,9 @@ public class MovimientoStock {
 
     private Double cantidad;
 
+    // Descripción opcional del movimiento (motivo de merma, ajuste, etc.)
+    private String motivo;
+
     private LocalDateTime fecha = LocalDateTime.now();
 
     private String origen;

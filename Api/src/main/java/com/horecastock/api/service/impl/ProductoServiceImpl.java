@@ -76,7 +76,9 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     public void delete(UUID id) {
         Producto producto = findById(id);
-        repository.delete(producto);
+        // Borrado lógico: nunca se elimina físicamente de la base de datos
+        producto.setActivo(false);
+        repository.save(producto);
     }
 
     @Override

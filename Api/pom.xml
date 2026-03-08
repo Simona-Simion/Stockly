@@ -15,7 +15,7 @@
 	<groupId>com.horecastock</groupId>
 	<artifactId>Api</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>HorecaStock</name>
+	<name>Stockly</name>
 	<description>Api para la gestión de inventarios y escandallos</description>
 
 	<properties>
@@ -63,6 +63,13 @@
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<version>42.7.3</version>
+		</dependency>
+
+		<!-- SPRING BOOT TEST (JUnit 5 + Mockito) ← AÑADIDO -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>

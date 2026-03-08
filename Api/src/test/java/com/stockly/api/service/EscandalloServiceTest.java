@@ -101,8 +101,8 @@ class EscandalloServiceTest {
         cubaLibre.setLineas(List.of(lineaRon, lineaCola));
 
         // Configurar los mocks para devolver el objeto guardado sin error
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(movimientoStockRepository.save(any(MovimientoStock.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(movimientoStockRepository.save(any(MovimientoStock.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

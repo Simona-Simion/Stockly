@@ -33,6 +33,10 @@ build/
 .vscode/
 .idea/
 
+### Archivos privados del proyecto ###
+CLAUDE.md
+DIARIO_TECNICO.md
+
 *.txt
 ../.idea/
 ../*.txt

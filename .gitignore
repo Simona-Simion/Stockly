@@ -34,7 +34,7 @@ build/
 .idea/
 
 ### Archivos privados del proyecto ###
-CLAUDE.md
+stoc.md
 DIARIO_TECNICO.md
 
 *.txt

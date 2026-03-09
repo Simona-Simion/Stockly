@@ -37,6 +37,10 @@ build/
 stoc.md
 DIARIO_TECNICO.md
 
+### Credenciales Firebase (nunca al repositorio) ###
+firebase-service-account.json
+**/firebase-service-account*.json
+
 *.txt
 ../.idea/
 ../*.txt

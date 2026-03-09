@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,16 +29,19 @@ public class ProductoController {
         return ResponseEntity.ok(service.findById(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Producto> create(@Valid @RequestBody Producto producto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.save(producto));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Producto> update(@PathVariable UUID id, @Valid @RequestBody Producto producto) {
         return ResponseEntity.ok(service.update(id, producto));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);

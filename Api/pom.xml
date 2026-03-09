@@ -65,6 +65,44 @@
 			<version>42.7.3</version>
 		</dependency>
 
+		<!-- ACTUATOR (health check para Render) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- FIREBASE ADMIN SDK (notificaciones push FCM) -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.2.0</version>
+		</dependency>
+
+		<!-- SPRING SECURITY -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<!-- JWT (validación de tokens Supabase) -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.6</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+
 		<!-- SPRING BOOT TEST (JUnit 5 + Mockito) ← AÑADIDO -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

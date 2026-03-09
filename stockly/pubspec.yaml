@@ -42,6 +42,16 @@ dependencies:
   # Formateo de fechas
   intl: ^0.19.0
 
+  # Autenticación con Supabase
+  supabase_flutter: ^2.9.1
+
+  # Escáner de códigos de barras y QR (usa cámara del dispositivo / API web)
+  mobile_scanner: ^6.0.2
+
+  # Firebase (notificaciones push FCM)
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

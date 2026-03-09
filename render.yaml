@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: stockly-api
+    runtime: docker
+    dockerfilePath: ./Api/Dockerfile
+    dockerContext: ./Api
+    region: frankfurt
+    plan: free
+    healthCheckPath: /actuator/health
+
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+
+      # Base de datos — pegar los valores de Supabase > Settings > Database
+      - key: DATABASE_URL
+        sync: false   # se introduce manualmente en el panel de Render
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+
+      # JWT Secret de Supabase — Project Settings > API > JWT Secret
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # Orígenes permitidos — dominio de Firebase Hosting
+      # Ejemplo: https://stockly-12345.web.app,https://stockly-12345.firebaseapp.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      # FCM — contenido del service-account.json como string en Base64
+      # (alternativa a montar el fichero; se lee en FirebaseConfig)
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false

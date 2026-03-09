@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/producto.dart';
 import '../../providers/producto_provider.dart';
+import '../scanner/scanner_screen.dart';
 import 'producto_detalle_screen.dart';
 import 'producto_form_screen.dart';
 
@@ -40,6 +41,14 @@ class _ProductosScreenState extends State<ProductosScreen> {
       appBar: AppBar(
         title: const Text('Productos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Escanear código de barras',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ScannerScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Recargar',

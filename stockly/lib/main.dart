@@ -1,16 +1,34 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
 import 'providers/producto_provider.dart';
 import 'providers/receta_provider.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/fcm_service.dart';
+import 'utils/constants.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await FcmService.solicitarPermiso();
+
   runApp(
-    // MultiProvider registra todos los providers en la raíz de la app.
-    // Así cualquier pantalla puede acceder al estado sin pasarlo manualmente.
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductoProvider()),
         ChangeNotifierProvider(create: (_) => RecetaProvider()),
       ],
@@ -29,7 +47,7 @@ class StocklyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1565C0), // azul corporativo
+          seedColor: const Color(0xFF1565C0),
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
@@ -37,7 +55,19 @@ class StocklyApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const HomeScreen(),
+      // Redirige a login o a la app según el estado de autenticación
+      home: const _AuthGate(),
     );
+  }
+}
+
+// Widget que escucha AuthProvider y muestra LoginScreen o HomeScreen
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final autenticado = context.watch<AuthProvider>().isAuthenticated;
+    return autenticado ? const HomeScreen() : const LoginScreen();
   }
 }

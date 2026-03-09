@@ -2,7 +2,18 @@
 // flutter build web --dart-define=API_URL=https://mi-servidor.com
 const String apiBaseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://localhost:8080',
+  defaultValue: 'http://localhost:8081',
+);
+
+// Configuración de Supabase. Sobreescribir al compilar:
+// flutter build web --dart-define=SUPABASE_URL=https://xxx.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJ...
+const String supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://TU_PROYECTO.supabase.co',
+);
+const String supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: 'TU_ANON_KEY',
 );
 
 // Rutas de los endpoints

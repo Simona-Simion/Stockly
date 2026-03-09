@@ -1,13 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Cliente HTTP base para comunicarse con la API REST de Stockly.
 // Gestiona cabeceras, parseo de JSON y manejo de errores en un único sitio.
 class ApiService {
-  final Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  // Las cabeceras se recalculan en cada petición para incluir siempre
+  // el token JWT vigente de la sesión activa de Supabase.
+  Map<String, String> get _headers {
+    final session = Supabase.instance.client.auth.currentSession;
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (session != null) 'Authorization': 'Bearer ${session.accessToken}',
+    };
+  }
 
   // GET — devuelve el cuerpo de la respuesta como Map o List
   Future<dynamic> get(String url) async {

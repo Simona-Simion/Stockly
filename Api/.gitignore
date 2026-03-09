@@ -33,6 +33,9 @@ build/
 .vscode/
 .idea/
 
+### Claude Code ###
+.claude/
+
 *.txt
 ../.idea/
 ../*.txt

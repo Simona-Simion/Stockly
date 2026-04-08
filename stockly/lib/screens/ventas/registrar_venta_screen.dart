@@ -214,7 +214,9 @@ class _RegistrarVentaScreenState extends State<RegistrarVentaScreen>
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           DropdownButtonFormField<Producto>(
-            value: _productoSeleccionado,
+            value: _productoSeleccionado != null
+                ? productos.where((p) => p.id == _productoSeleccionado!.id).firstOrNull
+                : null,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               hintText: 'Selecciona un producto',

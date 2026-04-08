@@ -2,6 +2,7 @@ package com.stockly.api.controller;
 
 import com.stockly.api.dto.ApiResponse;
 import com.stockly.api.dto.VentaEscandalloRequest;
+import com.stockly.api.dto.VentaProductoRequest;
 import com.stockly.api.model.Venta;
 import com.stockly.api.service.VentaService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,13 @@ public class VentaController {
         Venta venta = ventaService.registrarVenta(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Venta registrada correctamente", venta));
+    }
+
+    @PostMapping("/producto")
+    public ResponseEntity<ApiResponse<Venta>> registrarVentaProducto(@RequestBody VentaProductoRequest request) {
+        Venta venta = ventaService.registrarVentaProducto(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Venta de producto registrada correctamente", venta));
     }
 
     @GetMapping

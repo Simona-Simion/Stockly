@@ -14,10 +14,15 @@ public class Venta {
     @GeneratedValue
     private UUID id;
 
-    // Referencia a la receta vendida (antes apuntaba a Producto directamente)
+    // Referencia a la receta vendida (null en ventas directas de producto)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receta_id", nullable = false)
+    @JoinColumn(name = "receta_id", nullable = true)
     private Receta receta;
+
+    // Referencia al producto vendido directamente (null en ventas por receta)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "producto_id", nullable = true)
+    private Producto producto;
 
     @Column(nullable = false)
     private Integer cantidad;

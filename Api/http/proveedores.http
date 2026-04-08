@@ -1,0 +1,16 @@
+### Crear proveedor
+POST http://localhost:8081/api/proveedores
+Content-Type: application/json
+
+{
+  "nombre": "Distribuciones López",
+  "telefono": "600123123",
+  "email": "proveedor@lopez.com",
+  "direccion": "Calle Mayor 12"
+}
+
+### Listar proveedores
+GET http://localhost:8081/api/proveedores
+
+### Eliminar proveedor
+DELETE http://localhost:8081/api/proveedores/{{id}}

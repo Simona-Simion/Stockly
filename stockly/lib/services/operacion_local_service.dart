@@ -43,6 +43,22 @@ class OperacionLocalService {
     return rows.map(OperacionPendiente.fromMap).toList();
   }
 
+  Future<List<OperacionPendiente>> listarPorEstados(List<String> estados) async {
+    if (estados.isEmpty) {
+      return [];
+    }
+
+    final db = await _database;
+    final placeholders = List.filled(estados.length, '?').join(', ');
+    final rows = await db.query(
+      LocalDatabaseService.tablaOperacionesPendientes,
+      where: 'estado IN ($placeholders)',
+      whereArgs: estados,
+      orderBy: 'fecha_creacion_local ASC, id_local ASC',
+    );
+    return rows.map(OperacionPendiente.fromMap).toList();
+  }
+
   Future<OperacionPendiente?> obtenerPorUuid(String uuidOperacion) async {
     final db = await _database;
     final rows = await db.query(

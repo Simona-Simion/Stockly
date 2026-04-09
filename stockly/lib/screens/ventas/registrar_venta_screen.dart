@@ -5,6 +5,7 @@ import '../../models/producto.dart';
 import '../../models/receta.dart';
 import '../../providers/producto_provider.dart';
 import '../../providers/receta_provider.dart';
+import '../../repositories/venta_repository.dart';
 import '../../services/venta_service.dart';
 
 // Pantalla para registrar una venta.
@@ -19,7 +20,8 @@ class RegistrarVentaScreen extends StatefulWidget {
 
 class _RegistrarVentaScreenState extends State<RegistrarVentaScreen>
     with SingleTickerProviderStateMixin {
-  final VentaService _ventaService = VentaService();
+  final VentaService _ventaService =
+      VentaService(repository: VentaRepository());
 
   late final TabController _tabController;
 

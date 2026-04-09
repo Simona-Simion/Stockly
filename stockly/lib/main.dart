@@ -10,6 +10,7 @@ import 'providers/receta_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/fcm_service.dart';
+import 'services/local_database_service.dart';
 import 'utils/constants.dart';
 
 Future<void> main() async {
@@ -24,6 +25,7 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FcmService.solicitarPermiso();
+  await LocalDatabaseService.instance.initialize();
 
   runApp(
     MultiProvider(

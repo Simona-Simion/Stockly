@@ -29,6 +29,10 @@ class LocalDatabaseService {
     return results.any((result) => result != ConnectivityResult.none);
   }
 
+  Stream<List<ConnectivityResult>> get onConnectivityChanged {
+    return _connectivity.onConnectivityChanged;
+  }
+
   String generateOperationUuid() {
     return _uuid.v4();
   }

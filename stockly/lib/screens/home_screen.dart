@@ -10,6 +10,7 @@ import 'recetas/recetas_screen.dart';
 import 'ventas/registrar_venta_screen.dart';
 import 'mermas/registrar_merma_screen.dart';
 import 'movimientos/movimientos_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Pantalla principal con navegación inferior entre las secciones de la app.
 // Las secciones visibles dependen del rol del usuario (ADMIN / EMPLEADO).
@@ -23,6 +24,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _indiceActual = 0;
   final _movimientosKey = GlobalKey<MovimientosScreenState>();
+
+
 
   void _onTabChanged(int indice) {
     setState(() => _indiceActual = indice);

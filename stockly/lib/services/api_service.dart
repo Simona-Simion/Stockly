@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../utils/constants.dart';
 
 // Cliente HTTP base para comunicarse con la API REST de Stockly.
 // Gestiona cabeceras, parseo de JSON y manejo de errores en un único sitio.
@@ -47,6 +50,17 @@ class ApiService {
     final response = await http.delete(Uri.parse(url), headers: _headers);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Error ${response.statusCode}: ${response.body}');
+    }
+  }
+
+  Future<bool> isBackendAvailable() async {
+    try {
+      final response = await http
+          .get(Uri.parse(apiBaseUrl), headers: _headers)
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode > 0 && response.statusCode < 500;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -1,19 +1,64 @@
 import '../models/producto.dart';
 import '../utils/constants.dart';
 import 'api_service.dart';
+import 'local_database_service.dart';
+import 'producto_local_service.dart';
 
 // Servicio que encapsula todas las llamadas a /api/productos.
 class ProductoService {
   final ApiService _api = ApiService();
+  final LocalDatabaseService _localDatabaseService =
+      LocalDatabaseService.instance;
+  final ProductoLocalService _productoLocalService = ProductoLocalService();
 
   // Obtiene todos los productos activos
   Future<List<Producto>> listar() async {
+    final hasNetwork = await _localDatabaseService.hasNetworkConnection();
+
+    if (hasNetwork) {
+      final productos = await listarRemoto();
+      if (_localDatabaseService.isSupported) {
+        await _productoLocalService.reemplazarTodos(productos);
+      }
+      return productos;
+    }
+
+    if (_localDatabaseService.isSupported) {
+      return _productoLocalService.obtenerProductos();
+    }
+
+    throw Exception('No hay conexion y la base local no esta disponible.');
+  }
+
+  Future<List<Producto>> listarRemoto() async {
     final data = await _api.get(endpointProductos);
     return (data as List).map((j) => Producto.fromJson(j)).toList();
   }
 
   // Obtiene un producto por su id
   Future<Producto> obtener(String id) async {
+    final hasNetwork = await _localDatabaseService.hasNetworkConnection();
+
+    if (hasNetwork) {
+      final producto = await obtenerRemoto(id);
+      if (_localDatabaseService.isSupported) {
+        await _productoLocalService.guardarProducto(producto);
+      }
+      return producto;
+    }
+
+    if (_localDatabaseService.isSupported) {
+      final producto = await _productoLocalService.obtenerProductoPorId(id);
+      if (producto != null) {
+        return producto;
+      }
+      throw Exception('El producto no existe en la base local.');
+    }
+
+    throw Exception('No hay conexion y la base local no esta disponible.');
+  }
+
+  Future<Producto> obtenerRemoto(String id) async {
     final data = await _api.get('$endpointProductos/$id');
     return Producto.fromJson(data);
   }

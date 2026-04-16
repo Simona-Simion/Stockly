@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
+import 'providers/alerta_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/producto_provider.dart';
 import 'providers/receta_provider.dart';
@@ -27,11 +28,11 @@ Future<void> main() async {
   );
   await FcmService.solicitarPermiso();
   await LocalDatabaseService.instance.initialize();
-  await LocalDatabaseService.instance.debugMostrarTablasYDatos();
 
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AlertaProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductoProvider()),
         ChangeNotifierProvider(create: (_) => RecetaProvider()),

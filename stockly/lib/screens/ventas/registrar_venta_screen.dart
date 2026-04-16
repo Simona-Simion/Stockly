@@ -7,7 +7,6 @@ import '../../models/receta.dart';
 import '../../providers/producto_provider.dart';
 import '../../providers/receta_provider.dart';
 import '../../repositories/venta_repository.dart';
-import '../../services/local_database_service.dart';
 import '../../services/venta_service.dart';
 
 class RegistrarVentaScreen extends StatefulWidget {
@@ -359,23 +358,6 @@ class _RegistrarVentaScreenState extends State<RegistrarVentaScreen>
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                      ),
-                      onPressed: () async {
-                        try {
-                          print('===== DEBUG SQLite: OPERACIONES PENDIENTES =====');
-                          await LocalDatabaseService.instance
-                              .debugMostrarTablasYDatos();
-                          print('===== FIN DEBUG =====');
-                        } catch (e) {
-                          print('ERROR al mostrar SQLite: $e');
-                        }
-                      },
-                      child: const Text('DEBUG OPERACIONES PENDIENTES'),
                     ),
                   ],
                 ),

@@ -31,14 +31,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _cargarPerfil() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    print('TOKEN: ${session?.accessToken}');
     try {
       _usuario = await _usuarioService.fetchPerfil();
-      //print('ROL obtenido: ${_usuario?.rol}');
-      //print('esAdmin: $esAdmin');
     } catch (e) {
-     // print('ERROR al cargar perfil: $e');
       _usuario = null;
     }
     notifyListeners();

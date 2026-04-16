@@ -5,6 +5,7 @@ import com.stockly.api.model.Producto;
 import com.stockly.api.service.AlertaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class AlertaController {
 
     private final AlertaService alertaService;
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @GetMapping("/stock-minimo")
     public ResponseEntity<ApiResponse<List<Producto>>> getProductosBajoMinimo() {
         List<Producto> productos = alertaService.obtenerProductosBajoMinimo();

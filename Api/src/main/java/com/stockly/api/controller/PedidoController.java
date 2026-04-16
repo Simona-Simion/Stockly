@@ -5,6 +5,7 @@ import com.stockly.api.service.PedidoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,16 +18,19 @@ public class PedidoController {
 
     private final PedidoService service;
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @PostMapping
     public ResponseEntity<Pedido> crear(@RequestBody Pedido pedido) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(pedido));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @GetMapping
     public ResponseEntity<List<Pedido>> listar() {
         return ResponseEntity.ok(service.listar());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @PutMapping("/{id}/estado")
     public ResponseEntity<Pedido> actualizarEstado(@PathVariable("id") UUID id, @RequestParam String estado) {
         return ResponseEntity.ok(service.actualizarEstado(id, estado));

@@ -6,6 +6,7 @@ import com.stockly.api.repository.FcmTokenRepository;
 import com.stockly.api.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,7 @@ public class FcmTokenController {
 
     // Registra o actualiza el token FCM del dispositivo del usuario autenticado.
     // La app Flutter llama a este endpoint tras hacer login y obtener el token.
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/token")
     public ResponseEntity<Void> registrar(
             @AuthenticationPrincipal String supabaseUserId,

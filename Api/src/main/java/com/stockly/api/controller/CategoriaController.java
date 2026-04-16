@@ -5,6 +5,7 @@ import com.stockly.api.service.CategoriaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,16 +18,19 @@ public class CategoriaController {
 
     private final CategoriaService service;
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Categoria> crear(@RequestBody Categoria categoria) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(categoria));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @GetMapping
     public ResponseEntity<List<Categoria>> listar() {
         return ResponseEntity.ok(service.listar());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable("id") UUID id) {
         service.eliminar(id);

@@ -6,6 +6,7 @@ import com.stockly.api.service.MermaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,6 +16,7 @@ public class MermaController {
 
     private final MermaService mermaService;
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLEADO')")
     @PostMapping
     public ResponseEntity<ApiResponse<Void>> registrarMerma(@RequestBody MermaRequest request) {
         mermaService.registrarMerma(request);

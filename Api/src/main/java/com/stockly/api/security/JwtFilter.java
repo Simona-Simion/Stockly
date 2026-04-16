@@ -61,6 +61,13 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        String path = request.getServletPath();
+
+        if (path.equals("/api/auth/login") || path.equals("/api/auth/register")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -68,12 +75,15 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
+
+
         final String token = authHeader.substring(7);
 
         try {
             JWTClaimsSet claims = jwtProcessor.process(token, null);
             String supabaseUserId = claims.getSubject();
-            log.info("[JWT] Token válido. sub={}", supabaseUserId);
+            String email = claims.getStringClaim("email");
+           // log.info("[JWT] Token válido. sub={}", supabaseUserId);
 
             // Cargar rol desde la tabla local de usuarios
             Optional<Usuario> usuarioOpt = usuarioRepository
@@ -81,10 +91,11 @@ public class JwtFilter extends OncePerRequestFilter {
 
             if (usuarioOpt.isEmpty()) {
                 log.warn("[JWT] Usuario no encontrado en BD para sub={}", supabaseUserId);
-            } else {
-                log.info("[JWT] Usuario encontrado: email={}, rol={}",
-                        usuarioOpt.get().getEmail(), usuarioOpt.get().getRol());
             }
+            //else {
+                //log.info("[JWT] Usuario encontrado: email={}, rol={}",
+               // usuarioOpt.get().getEmail(), usuarioOpt.get().getRol());
+           // }
 
             List<SimpleGrantedAuthority> authorities = usuarioOpt
                     .map(u -> List.of(new SimpleGrantedAuthority("ROLE_" + u.getRol().name())))
@@ -92,6 +103,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(supabaseUserId, null, authorities);
+            auth.setDetails(email);
 
             SecurityContextHolder.getContext().setAuthentication(auth);
 

@@ -1,23 +1,30 @@
-import '../models/receta.dart';
+﻿import '../models/receta.dart';
 import '../utils/constants.dart';
 import 'api_service.dart';
+import 'catalogo_local_sync_service.dart';
 import 'local_database_service.dart';
 import 'receta_local_service.dart';
 
-// Servicio que encapsula todas las llamadas a /api/recetas.
 class RecetaService {
   final ApiService _api = ApiService();
   final LocalDatabaseService _localDatabaseService =
       LocalDatabaseService.instance;
   final RecetaLocalService _recetaLocalService = RecetaLocalService();
+  final CatalogoLocalSyncService _catalogoLocalSyncService =
+      CatalogoLocalSyncService();
 
   Future<List<Receta>> listar() async {
     final hasNetwork = await _localDatabaseService.hasNetworkConnection();
 
     if (hasNetwork) {
-      final recetas = await listarRemoto();
+      final recetas = await _catalogoLocalSyncService.obtenerRecetasRemotas();
       if (_localDatabaseService.isSupported) {
-        await _recetaLocalService.refrescarRecetasCompletas(recetas);
+        final productos = await _catalogoLocalSyncService.obtenerProductosRemotos();
+        await _catalogoLocalSyncService.guardarCatalogo(
+          productos: productos,
+          recetas: recetas,
+          reemplazarTodo: true,
+        );
       }
       return recetas;
     }
@@ -40,8 +47,12 @@ class RecetaService {
     if (hasNetwork) {
       final receta = await obtenerRemoto(id);
       if (_localDatabaseService.isSupported) {
-        await _recetaLocalService.guardarReceta(receta);
-        await _recetaLocalService.reemplazarLineasReceta(id, receta.lineas);
+        final productos = await _catalogoLocalSyncService.obtenerProductosRemotos();
+        await _catalogoLocalSyncService.guardarCatalogo(
+          productos: productos,
+          recetas: [receta],
+          reemplazarTodo: false,
+        );
       }
       return receta;
     }

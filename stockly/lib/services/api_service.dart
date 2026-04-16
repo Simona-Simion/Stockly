@@ -55,10 +55,11 @@ class ApiService {
 
   Future<bool> isBackendAvailable() async {
     try {
+      final healthUrl = '${apiBaseUrl.endsWith('/') ? apiBaseUrl.substring(0, apiBaseUrl.length - 1) : apiBaseUrl}/actuator/health';
       final response = await http
-          .get(Uri.parse(apiBaseUrl), headers: _headers)
+          .get(Uri.parse(healthUrl), headers: _headers)
           .timeout(const Duration(seconds: 5));
-      return response.statusCode > 0 && response.statusCode < 500;
+      return response.statusCode >= 200 && response.statusCode < 300;
     } catch (_) {
       return false;
     }

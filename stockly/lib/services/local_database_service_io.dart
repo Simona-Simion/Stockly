@@ -1,4 +1,4 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+﻿import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -12,8 +12,9 @@ class LocalDatabaseService {
   static const int _databaseVersion = 1;
   static const String tablaProductos = 'productos';
   static const String tablaRecetas = 'recetas';
-  static const String tablaRecetaLineas = 'receta_lineas';
+  static const String tablaRecetaLineas = 'lineas_receta';
   static const String tablaOperacionesPendientes = 'operaciones_pendientes';
+  static const int _debugSampleLimit = 5;
 
   final Connectivity _connectivity = Connectivity();
   final Uuid _uuid = const Uuid();
@@ -126,6 +127,49 @@ class LocalDatabaseService {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, newVersion);
+    }
+  }
+
+  Future<void> debugMostrarTablasYDatos() async {
+    final db = await database;
+
+    await _debugMostrarResumenTabla(db, tablaProductos);
+    await _debugMostrarResumenTabla(db, tablaRecetas);
+    await _debugMostrarResumenTabla(db, tablaRecetaLineas);
+    await _debugMostrarResumenTabla(
+      db,
+      tablaOperacionesPendientes,
+      orderBy: 'fecha_creacion_local DESC, id_local DESC',
+    );
+  }
+
+  Future<void> _debugMostrarResumenTabla(
+    Database db,
+    String tabla, {
+    String? orderBy,
+  }) async {
+    final countResult = await db.rawQuery(
+      'SELECT COUNT(*) AS total FROM $tabla',
+    );
+    final total = (countResult.first['total'] as int?) ?? 0;
+
+    final muestra = await db.query(
+      tabla,
+      orderBy: orderBy,
+      limit: _debugSampleLimit,
+    );
+
+    print('--- ${tabla.toUpperCase()} ---');
+    print('Total filas: $total');
+
+    if (muestra.isEmpty) {
+      print('Sin datos.');
+      return;
+    }
+
+    print('Mostrando hasta $_debugSampleLimit filas:');
+    for (final fila in muestra) {
+      print(fila);
     }
   }
 }

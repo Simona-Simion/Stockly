@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+﻿import 'package:sqflite/sqflite.dart';
 
 import '../models/linea_receta.dart';
 import '../models/receta.dart';
@@ -42,16 +42,23 @@ class RecetaLocalService {
   Future<void> reemplazarLineasRecetaEnTransaccion(
     DatabaseExecutor executor,
     String recetaId,
-    List<LineaReceta> lineas,
-  ) async {
+    List<LineaReceta> lineas, {
+    Set<String>? productoIdsValidos,
+  }) async {
     await executor.delete(
       LocalDatabaseService.tablaRecetaLineas,
       where: 'receta_id = ?',
       whereArgs: [recetaId],
     );
 
+    final lineasValidas = productoIdsValidos == null
+        ? lineas
+        : lineas
+            .where((linea) => productoIdsValidos.contains(linea.productoId))
+            .toList();
+
     final batch = executor.batch();
-    for (final linea in lineas) {
+    for (final linea in lineasValidas) {
       batch.insert(
         LocalDatabaseService.tablaRecetaLineas,
         _toLineaMap(recetaId, linea),
@@ -78,6 +85,7 @@ class RecetaLocalService {
       for (final receta in recetas) {
         await reemplazarLineasRecetaEnTransaccion(txn, receta.id, receta.lineas);
       }
+      await eliminarLineasHuerfanasEnTransaccion(txn);
     });
   }
 
@@ -88,6 +96,7 @@ class RecetaLocalService {
     final db = await _database;
     await db.transaction((txn) async {
       await reemplazarLineasRecetaEnTransaccion(txn, recetaId, lineas);
+      await eliminarLineasHuerfanasEnTransaccion(txn);
     });
   }
 
@@ -103,28 +112,34 @@ class RecetaLocalService {
 
   Future<List<Receta>> obtenerRecetasCompletas() async {
     final recetas = await obtenerRecetas();
-    final resultado = <Receta>[];
+    final db = await _database;
+    final lineasPorReceta =
+        await obtenerLineasAgrupadasPorRecetaEnTransaccion(db);
 
-    for (final receta in recetas) {
-      final lineas = await obtenerLineasPorRecetaId(receta.id);
-      resultado.add(
-        Receta(
-          id: receta.id,
-          nombre: receta.nombre,
-          descripcion: receta.descripcion,
-          precioVenta: receta.precioVenta,
-          activo: receta.activo,
-          lineas: lineas,
-        ),
-      );
-    }
-
-    return resultado;
+    return recetas
+        .map(
+          (receta) => Receta(
+            id: receta.id,
+            nombre: receta.nombre,
+            descripcion: receta.descripcion,
+            precioVenta: receta.precioVenta,
+            activo: receta.activo,
+            lineas: lineasPorReceta[receta.id] ?? const [],
+          ),
+        )
+        .toList();
   }
 
   Future<Receta?> obtenerRecetaPorId(String id) async {
     final db = await _database;
-    final rows = await db.query(
+    return obtenerRecetaPorIdEnTransaccion(db, id);
+  }
+
+  Future<Receta?> obtenerRecetaPorIdEnTransaccion(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final rows = await executor.query(
       LocalDatabaseService.tablaRecetas,
       where: 'id = ?',
       whereArgs: [id],
@@ -140,16 +155,24 @@ class RecetaLocalService {
 
   Future<List<LineaReceta>> obtenerLineasPorRecetaId(String recetaId) async {
     final db = await _database;
-    final rows = await db.rawQuery(
+    return obtenerLineasPorRecetaIdEnTransaccion(db, recetaId);
+  }
+
+  Future<List<LineaReceta>> obtenerLineasPorRecetaIdEnTransaccion(
+    DatabaseExecutor executor,
+    String recetaId,
+  ) async {
+    final rows = await executor.rawQuery(
       '''
       SELECT
         rl.id,
+        rl.receta_id,
         rl.producto_id,
         p.nombre AS producto_nombre,
         rl.unidad_medida,
         rl.cantidad
       FROM ${LocalDatabaseService.tablaRecetaLineas} rl
-      LEFT JOIN ${LocalDatabaseService.tablaProductos} p
+      INNER JOIN ${LocalDatabaseService.tablaProductos} p
         ON p.id = rl.producto_id
       WHERE rl.receta_id = ?
       ORDER BY rl.id ASC
@@ -160,13 +183,54 @@ class RecetaLocalService {
     return rows.map(_fromLineaMap).toList();
   }
 
+  Future<Map<String, List<LineaReceta>>> obtenerLineasAgrupadasPorRecetaEnTransaccion(
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.rawQuery(
+      '''
+      SELECT
+        rl.id,
+        rl.receta_id,
+        rl.producto_id,
+        p.nombre AS producto_nombre,
+        rl.unidad_medida,
+        rl.cantidad
+      FROM ${LocalDatabaseService.tablaRecetaLineas} rl
+      INNER JOIN ${LocalDatabaseService.tablaProductos} p
+        ON p.id = rl.producto_id
+      ORDER BY rl.receta_id ASC, rl.id ASC
+      ''',
+    );
+
+    final resultado = <String, List<LineaReceta>>{};
+    for (final row in rows) {
+      final recetaId = row['receta_id'] as String?;
+      if (recetaId == null || recetaId.isEmpty) {
+        continue;
+      }
+
+      resultado.putIfAbsent(recetaId, () => <LineaReceta>[]);
+      resultado[recetaId]!.add(_fromLineaMap(row));
+    }
+
+    return resultado;
+  }
+
   Future<Receta?> obtenerRecetaCompletaPorId(String id) async {
-    final receta = await obtenerRecetaPorId(id);
+    final db = await _database;
+    return obtenerRecetaCompletaPorIdEnTransaccion(db, id);
+  }
+
+  Future<Receta?> obtenerRecetaCompletaPorIdEnTransaccion(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final receta = await obtenerRecetaPorIdEnTransaccion(executor, id);
     if (receta == null) {
       return null;
     }
 
-    final lineas = await obtenerLineasPorRecetaId(id);
+    final lineas = await obtenerLineasPorRecetaIdEnTransaccion(executor, id);
     return Receta(
       id: receta.id,
       nombre: receta.nombre,
@@ -187,6 +251,26 @@ class RecetaLocalService {
   Future<void> eliminarTodasEnTransaccion(DatabaseExecutor executor) async {
     await executor.delete(LocalDatabaseService.tablaRecetaLineas);
     await executor.delete(LocalDatabaseService.tablaRecetas);
+  }
+
+  Future<void> eliminarLineasHuerfanas() async {
+    final db = await _database;
+    await db.transaction((txn) async {
+      await eliminarLineasHuerfanasEnTransaccion(txn);
+    });
+  }
+
+  Future<void> eliminarLineasHuerfanasEnTransaccion(
+    DatabaseExecutor executor,
+  ) async {
+    await executor.execute(
+      '''
+      DELETE FROM ${LocalDatabaseService.tablaRecetaLineas}
+      WHERE producto_id NOT IN (
+        SELECT id FROM ${LocalDatabaseService.tablaProductos}
+      )
+      ''',
+    );
   }
 
   Receta _fromRecetaMap(Map<String, dynamic> map, List<LineaReceta> lineas) {

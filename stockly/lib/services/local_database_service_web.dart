@@ -36,4 +36,8 @@ class LocalDatabaseService {
   String generateOperationUuid() {
     return _uuid.v4();
   }
+
+  Future<void> debugMostrarTablasYDatos() async {
+    print('DEBUG SQLITE: no disponible en web');
+  }
 }

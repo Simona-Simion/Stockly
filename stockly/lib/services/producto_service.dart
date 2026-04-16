@@ -1,24 +1,30 @@
-import '../models/producto.dart';
+﻿import '../models/producto.dart';
 import '../utils/constants.dart';
 import 'api_service.dart';
+import 'catalogo_local_sync_service.dart';
 import 'local_database_service.dart';
 import 'producto_local_service.dart';
 
-// Servicio que encapsula todas las llamadas a /api/productos.
 class ProductoService {
   final ApiService _api = ApiService();
   final LocalDatabaseService _localDatabaseService =
       LocalDatabaseService.instance;
   final ProductoLocalService _productoLocalService = ProductoLocalService();
+  final CatalogoLocalSyncService _catalogoLocalSyncService =
+      CatalogoLocalSyncService();
 
-  // Obtiene todos los productos activos
   Future<List<Producto>> listar() async {
     final hasNetwork = await _localDatabaseService.hasNetworkConnection();
 
     if (hasNetwork) {
-      final productos = await listarRemoto();
+      final productos = await _catalogoLocalSyncService.obtenerProductosRemotos();
       if (_localDatabaseService.isSupported) {
-        await _productoLocalService.reemplazarTodos(productos);
+        final recetas = await _catalogoLocalSyncService.obtenerRecetasRemotas();
+        await _catalogoLocalSyncService.guardarCatalogo(
+          productos: productos,
+          recetas: recetas,
+          reemplazarTodo: true,
+        );
       }
       return productos;
     }
@@ -35,7 +41,6 @@ class ProductoService {
     return (data as List).map((j) => Producto.fromJson(j)).toList();
   }
 
-  // Obtiene un producto por su id
   Future<Producto> obtener(String id) async {
     final hasNetwork = await _localDatabaseService.hasNetworkConnection();
 
@@ -63,25 +68,21 @@ class ProductoService {
     return Producto.fromJson(data);
   }
 
-  // Busca un producto por código de barras (para el escáner)
   Future<Producto> buscarPorCodigo(String codigo) async {
     final data = await _api.get('$endpointProductos/scan/$codigo');
     return Producto.fromJson(data);
   }
 
-  // Crea un nuevo producto
   Future<Producto> crear(Map<String, dynamic> body) async {
     final data = await _api.post(endpointProductos, body);
     return Producto.fromJson(data);
   }
 
-  // Actualiza un producto existente
   Future<Producto> actualizar(String id, Map<String, dynamic> body) async {
     final data = await _api.put('$endpointProductos/$id', body);
     return Producto.fromJson(data);
   }
 
-  // Desactiva un producto (borrado lógico)
   Future<void> desactivar(String id) async {
     await _api.delete('$endpointProductos/$id');
   }

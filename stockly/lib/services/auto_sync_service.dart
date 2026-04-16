@@ -1,21 +1,26 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-import '../repositories/operacion_sync_repository.dart';
+import 'package:stockly/repositories/operacion_sync_repository.dart';
 import 'api_service.dart';
+import 'catalogo_local_sync_service.dart';
 import 'local_database_service.dart';
 
 class AutoSyncService {
   AutoSyncService({
     OperacionSyncRepository? operacionSyncRepository,
     ApiService? apiService,
+    CatalogoLocalSyncService? catalogoLocalSyncService,
   })  : _operacionSyncRepository =
             operacionSyncRepository ?? OperacionSyncRepository(),
-        _apiService = apiService ?? ApiService();
+        _apiService = apiService ?? ApiService(),
+        _catalogoLocalSyncService =
+            catalogoLocalSyncService ?? CatalogoLocalSyncService();
 
   final OperacionSyncRepository _operacionSyncRepository;
   final ApiService _apiService;
+  final CatalogoLocalSyncService _catalogoLocalSyncService;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _isSyncing = false;
@@ -53,6 +58,10 @@ class AutoSyncService {
       _wasOffline = false;
       await sincronizarSiCorresponde();
     });
+
+    if (hasNetwork) {
+      await sincronizarSiCorresponde();
+    }
   }
 
   Future<void> sincronizarSiCorresponde() async {
@@ -78,6 +87,7 @@ class AutoSyncService {
 
     try {
       await _operacionSyncRepository.sincronizarPendientes();
+      await _catalogoLocalSyncService.refrescarDesdeBackend();
     } finally {
       _isSyncing = false;
     }

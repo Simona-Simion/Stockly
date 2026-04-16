@@ -1,5 +1,6 @@
-import '../models/producto.dart';
+﻿import '../models/producto.dart';
 import '../models/receta.dart';
+import '../services/catalogo_local_sync_service.dart';
 import '../services/local_database_service.dart';
 import '../services/producto_local_service.dart';
 import '../services/producto_service.dart';
@@ -12,15 +13,19 @@ class LocalSyncRepository {
     RecetaService? recetaService,
     ProductoLocalService? productoLocalService,
     RecetaLocalService? recetaLocalService,
+    CatalogoLocalSyncService? catalogoLocalSyncService,
   })  : _productoService = productoService ?? ProductoService(),
         _recetaService = recetaService ?? RecetaService(),
         _productoLocalService = productoLocalService ?? ProductoLocalService(),
-        _recetaLocalService = recetaLocalService ?? RecetaLocalService();
+        _recetaLocalService = recetaLocalService ?? RecetaLocalService(),
+        _catalogoLocalSyncService =
+            catalogoLocalSyncService ?? CatalogoLocalSyncService();
 
   final ProductoService _productoService;
   final RecetaService _recetaService;
   final ProductoLocalService _productoLocalService;
   final RecetaLocalService _recetaLocalService;
+  final CatalogoLocalSyncService _catalogoLocalSyncService;
 
   Future<void> refrescarProductos() async {
     if (!LocalDatabaseService.instance.isSupported) {
@@ -28,7 +33,12 @@ class LocalSyncRepository {
     }
 
     final productos = await _productoService.listarRemoto();
-    await _productoLocalService.reemplazarTodos(productos);
+    final recetas = await _recetaService.listarRemoto();
+    await _catalogoLocalSyncService.guardarCatalogo(
+      productos: productos,
+      recetas: recetas,
+      reemplazarTodo: true,
+    );
   }
 
   Future<void> refrescarRecetas() async {
@@ -36,8 +46,14 @@ class LocalSyncRepository {
       return;
     }
 
+    final productos = await _productoService.listarRemoto();
     final recetas = await _recetaService.listarRemoto();
-    await _recetaLocalService.refrescarRecetasCompletas(recetas);
+
+    await _catalogoLocalSyncService.guardarCatalogo(
+      productos: productos,
+      recetas: recetas,
+      reemplazarTodo: true,
+    );
   }
 
   Future<void> refrescarCatalogoLocal() async {
@@ -48,32 +64,10 @@ class LocalSyncRepository {
     final productos = await _productoService.listarRemoto();
     final recetas = await _recetaService.listarRemoto();
 
-    await _reemplazarCacheLocal(
+    await _catalogoLocalSyncService.guardarCatalogo(
       productos: productos,
       recetas: recetas,
+      reemplazarTodo: true,
     );
-  }
-
-  Future<void> _reemplazarCacheLocal({
-    required List<Producto> productos,
-    required List<Receta> recetas,
-  }) async {
-    final db = await LocalDatabaseService.instance.database;
-
-    await db.transaction((txn) async {
-      await _recetaLocalService.eliminarTodasEnTransaccion(txn);
-      await _productoLocalService.eliminarTodosEnTransaccion(txn);
-
-      await _productoLocalService.guardarProductosEnTransaccion(txn, productos);
-      await _recetaLocalService.guardarRecetasEnTransaccion(txn, recetas);
-
-      for (final receta in recetas) {
-        await _recetaLocalService.reemplazarLineasRecetaEnTransaccion(
-          txn,
-          receta.id,
-          receta.lineas,
-        );
-      }
-    });
   }
 }

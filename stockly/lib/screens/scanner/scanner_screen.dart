@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../models/producto.dart';
@@ -16,9 +16,16 @@ class ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController();
+  static const Duration _cooldownDeteccion = Duration(seconds: 2);
+
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
   final ProductoService _productoService = ProductoService();
+
   bool _procesando = false;
+  String? _ultimoCodigoDetectado;
+  DateTime? _ultimaDeteccion;
 
   @override
   void dispose() {
@@ -26,21 +33,41 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.dispose();
   }
 
+  bool _debeIgnorarCodigo(String codigo) {
+    final ahora = DateTime.now();
+
+    if (_ultimoCodigoDetectado == codigo && _ultimaDeteccion != null) {
+      final diferencia = ahora.difference(_ultimaDeteccion!);
+      if (diferencia < _cooldownDeteccion) {
+        return true;
+      }
+    }
+
+    _ultimoCodigoDetectado = codigo;
+    _ultimaDeteccion = ahora;
+    return false;
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
-    // Ignora detecciones múltiples mientras se procesa una
-    if (_procesando) return;
+    if (_procesando || capture.barcodes.isEmpty) {
+      return;
+    }
 
-    final codigo = capture.barcodes.firstOrNull?.rawValue;
-    if (codigo == null) return;
+    final codigo = capture.barcodes.first.rawValue?.trim();
+    if (codigo == null || codigo.isEmpty || _debeIgnorarCodigo(codigo)) {
+      return;
+    }
 
-    setState(() => _procesando = true);
+    if (mounted) {
+      setState(() => _procesando = true);
+    }
+
     await _controller.stop();
 
     try {
       final Producto producto = await _productoService.buscarPorCodigo(codigo);
       if (!mounted) return;
 
-      // Reemplaza la pantalla del escáner por el detalle del producto
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -49,6 +76,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       );
     } catch (_) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Producto no encontrado para el código: $codigo'),
@@ -60,7 +88,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ),
         ),
       );
-      // Reanuda el escáner para intentar con otro código
+
       setState(() => _procesando = false);
       await _controller.start();
     }
@@ -77,16 +105,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Vista de la cámara
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
           ),
-
-          // Overlay oscuro con ventana de escaneo
           _ScanOverlay(),
-
-          // Texto de ayuda en la parte inferior
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -103,8 +126,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
           ),
-
-          // Indicador de carga mientras se busca el producto
           if (_procesando)
             const ColoredBox(
               color: Colors.black38,

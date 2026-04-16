@@ -1,8 +1,11 @@
 // URL base de la API REST.
 const String apiBaseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://localhost:8081',
+  defaultValue: 'https://stockly-production-4a34.up.railway.app'
 );
+
+
+// local apiURL   'http://localhost:8081'
 
 // Configuración de Supabase.
 const String supabaseUrl = String.fromEnvironment(

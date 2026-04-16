@@ -27,6 +27,7 @@ Future<void> main() async {
   );
   await FcmService.solicitarPermiso();
   await LocalDatabaseService.instance.initialize();
+  await LocalDatabaseService.instance.debugMostrarTablasYDatos();
 
   runApp(
     MultiProvider(

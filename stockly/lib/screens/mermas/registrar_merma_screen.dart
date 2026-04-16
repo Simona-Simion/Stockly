@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/producto.dart';
 import '../../providers/producto_provider.dart';
+import '../../repositories/merma_repository.dart';
 import '../../services/merma_service.dart';
 
 // Pantalla para registrar una merma: producto roto, caducado, derramado, etc.
@@ -15,7 +16,8 @@ class RegistrarMermaScreen extends StatefulWidget {
 }
 
 class _RegistrarMermaScreenState extends State<RegistrarMermaScreen> {
-  final MermaService _mermaService = MermaService();
+  final MermaService _mermaService =
+      MermaService(repository: MermaRepository());
   final _cantidadCtrl = TextEditingController();
   final _motivoCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -41,116 +43,124 @@ class _RegistrarMermaScreenState extends State<RegistrarMermaScreen> {
   @override
   Widget build(BuildContext context) {
     final productos = context.watch<ProductoProvider>().productos;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Registrar merma')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Explicación breve para el camarero
-              Card(
-                color: Colors.orange.shade50,
-                child: const ListTile(
-                  leading: Icon(Icons.info_outline, color: Colors.orange),
-                  title: Text(
-                    'Registra producto roto, caducado o derramado. '
-                    'El stock se descontará automáticamente.',
-                    style: TextStyle(fontSize: 13),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Explicación breve para el camarero
+                Card(
+                  color: Colors.orange.shade50,
+                  child: const ListTile(
+                    leading: Icon(Icons.info_outline, color: Colors.orange),
+                    title: Text(
+                      'Registra producto roto, caducado o derramado. '
+                      'El stock se descontará automáticamente.',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Selector de producto
-              DropdownButtonFormField<Producto>(
-                initialValue: _productoSeleccionado,
-                decoration: const InputDecoration(
-                  labelText: 'Producto *',
-                  prefixIcon: Icon(Icons.inventory_2_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                items: productos
-                    .map((p) => DropdownMenuItem(
-                          value: p,
-                          child: Row(
-                            children: [
-                              Text(p.nombre),
-                              const SizedBox(width: 8),
-                              Text(
-                                '(stock: ${p.stockActual.toStringAsFixed(2)})',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (p) => setState(() => _productoSeleccionado = p),
-                validator: (v) => v == null ? 'Selecciona un producto' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Cantidad a descontar
-              TextFormField(
-                controller: _cantidadCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Cantidad *',
-                  prefixIcon: Icon(Icons.numbers),
-                  border: OutlineInputBorder(),
-                  hintText: 'ej: 0.5',
-                ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Introduce la cantidad';
-                  final n = double.tryParse(v);
-                  if (n == null || n <= 0) return 'Cantidad inválida';
-                  if (_productoSeleccionado != null &&
-                      n > _productoSeleccionado!.stockActual) {
-                    return 'Stock insuficiente: solo tienes '
-                        '${_productoSeleccionado!.stockActual} unidades disponibles';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Motivo (obligatorio para el historial)
-              TextFormField(
-                controller: _motivoCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Motivo *',
-                  prefixIcon: Icon(Icons.comment_outlined),
-                  border: OutlineInputBorder(),
-                  hintText: 'ej: Botella rota, caducado, derramado...',
-                ),
-                validator: (v) => v!.isEmpty ? 'Indica el motivo' : null,
-              ),
-              const Spacer(),
-
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.orange.shade700,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                // Selector de producto
+                DropdownButtonFormField<Producto>(
+                  initialValue: _productoSeleccionado,
+                  decoration: const InputDecoration(
+                    labelText: 'Producto *',
+                    prefixIcon: Icon(Icons.inventory_2_outlined),
+                    border: OutlineInputBorder(),
                   ),
-                  onPressed: _registrando ? null : _registrarMerma,
-                  icon: _registrando
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.delete),
-                  label: const Text('Registrar merma'),
+                  items: productos
+                      .map((p) => DropdownMenuItem(
+                            value: p,
+                            child: Row(
+                              children: [
+                                Text(p.nombre),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '(stock: ${p.stockActual.toStringAsFixed(2)})',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (p) => setState(() => _productoSeleccionado = p),
+                  validator: (v) => v == null ? 'Selecciona un producto' : null,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // Cantidad a descontar
+                TextFormField(
+                  controller: _cantidadCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad *',
+                    prefixIcon: Icon(Icons.numbers),
+                    border: OutlineInputBorder(),
+                    hintText: 'ej: 0.5',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Introduce la cantidad';
+                    final n = double.tryParse(v);
+                    if (n == null || n <= 0) return 'Cantidad inválida';
+                    if (_productoSeleccionado != null &&
+                        n > _productoSeleccionado!.stockActual) {
+                      return 'Stock insuficiente: solo tienes '
+                          '${_productoSeleccionado!.stockActual} unidades disponibles';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Motivo (obligatorio para el historial)
+                TextFormField(
+                  controller: _motivoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo *',
+                    prefixIcon: Icon(Icons.comment_outlined),
+                    border: OutlineInputBorder(),
+                    hintText: 'ej: Botella rota, caducado, derramado...',
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? 'Indica el motivo' : null,
+
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    onPressed: _registrando ? null : _registrarMerma,
+                    icon: _registrando
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.delete),
+                    label: const Text('Registrar merma'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -5,12 +5,14 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/producto_provider.dart';
 import '../providers/receta_provider.dart';
+import '../repositories/operacion_sync_repository.dart';
 import 'productos/productos_screen.dart';
 import 'recetas/recetas_screen.dart';
 import 'ventas/registrar_venta_screen.dart';
 import 'mermas/registrar_merma_screen.dart';
 import 'movimientos/movimientos_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+//import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Pantalla principal con navegación inferior entre las secciones de la app.
 // Las secciones visibles dependen del rol del usuario (ADMIN / EMPLEADO).
@@ -24,17 +26,64 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _indiceActual = 0;
   final _movimientosKey = GlobalKey<MovimientosScreenState>();
-
-
+  final OperacionSyncRepository _operacionSyncRepository =
+      OperacionSyncRepository();
+  bool _reintentandoSincronizacion = false;
 
   void _onTabChanged(int indice) {
     setState(() => _indiceActual = indice);
 
-    switch (indice) {
-      case 0:
-        context.read<ProductoProvider>().cargar();
-      case 1:
-        context.read<RecetaProvider>().cargar();
+    final esAdmin = context.read<AuthProvider>().esAdmin;
+
+    if (esAdmin) {
+      switch (indice) {
+        case 0:
+          context.read<ProductoProvider>().cargar();
+          break;
+        case 1:
+          context.read<RecetaProvider>().cargar();
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  Future<void> _reintentarSincronizacion() async {
+    if (_reintentandoSincronizacion) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+
+    setState(() => _reintentandoSincronizacion = true);
+
+    try {
+      await _operacionSyncRepository.reintentarErroresYConflictos();
+
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Reintento de sincronizacion ejecutado.')),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error al reintentar la sincronizacion: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _reintentandoSincronizacion = false);
+      }
     }
   }
 
@@ -82,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIcon: Icon(Icons.history),
         label: 'Historial',
       ),
-
       const NavigationDestination(
         icon: Icon(Icons.qr_code_scanner_outlined),
         selectedIcon: Icon(Icons.qr_code_scanner),
@@ -114,10 +162,39 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: IndexedStack(
-        // IndexedStack mantiene el estado de todas las pantallas
-        index: indiceSeguro,
-        children: pantallas,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _reintentandoSincronizacion
+                    ? null
+                    : _reintentarSincronizacion,
+                icon: _reintentandoSincronizacion
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync),
+                label: Text(
+                  _reintentandoSincronizacion
+                      ? 'Reintentando sincronizacion...'
+                      : 'Reintentar sincronizacion',
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              // IndexedStack mantiene el estado de todas las pantallas
+              index: indiceSeguro,
+              children: pantallas,
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: indiceSeguro,

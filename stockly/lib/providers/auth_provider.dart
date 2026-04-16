@@ -35,10 +35,10 @@ class AuthProvider extends ChangeNotifier {
     print('TOKEN: ${session?.accessToken}');
     try {
       _usuario = await _usuarioService.fetchPerfil();
-      print('ROL obtenido: ${_usuario?.rol}');
-      print('esAdmin: $esAdmin');
+      //print('ROL obtenido: ${_usuario?.rol}');
+      //print('esAdmin: $esAdmin');
     } catch (e) {
-      print('ERROR al cargar perfil: $e');
+     // print('ERROR al cargar perfil: $e');
       _usuario = null;
     }
     notifyListeners();

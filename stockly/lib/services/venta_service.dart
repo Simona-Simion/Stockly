@@ -18,6 +18,15 @@ class VentaService {
   // Registra una venta aplicando el escandallo en el backend.
   // body: { recetaId, cantidad, origen }
   Future<void> registrar(String recetaId, int cantidad) async {
+    if (_repository != null) {
+      await _repository!.registrarVentaReceta(recetaId, cantidad);
+      return;
+    }
+
+    await registrarHttp(recetaId, cantidad);
+  }
+
+  Future<void> registrarHttp(String recetaId, int cantidad) async {
     await _api.post(endpointVentas, {
       'recetaId': recetaId,
       'cantidad': cantidad,

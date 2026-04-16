@@ -1,19 +1,35 @@
-import 'dart:convert';
+
+
 
 import '../models/operacion_pendiente.dart';
 import '../services/local_database_service.dart';
+import '../services/merma_service.dart';
 import '../services/operacion_local_service.dart';
 import '../services/venta_service.dart';
+import 'operacion_handlers/merma_producto_handler.dart';
+import 'operacion_handlers/operacion_handler.dart';
+import 'operacion_handlers/operacion_sync_exception.dart';
+import 'operacion_handlers/venta_producto_handler.dart';
+import 'operacion_handlers/venta_receta_handler.dart';
 
 class OperacionSyncRepository {
   OperacionSyncRepository({
     OperacionLocalService? operacionLocalService,
     VentaService? ventaService,
+    MermaService? mermaService,
+    List<OperacionHandler>? handlers,
   })  : _operacionLocalService = operacionLocalService ?? OperacionLocalService(),
-        _ventaService = ventaService ?? VentaService.http();
+        _handlersByTipo = _crearMapaHandlers(
+          handlers ??
+              [
+                VentaProductoHandler(ventaService: ventaService),
+                MermaProductoHandler(mermaService: mermaService),
+                VentaRecetaHandler(ventaService: ventaService),
+              ],
+        );
 
   final OperacionLocalService _operacionLocalService;
-  final VentaService _ventaService;
+  final Map<String, OperacionHandler> _handlersByTipo;
 
   Future<void> sincronizarPendientes() async {
     final localDatabaseService = LocalDatabaseService.instance;
@@ -33,65 +49,109 @@ class OperacionSyncRepository {
     ]);
 
     for (final operacion in operaciones) {
-      if (operacion.tipoOperacion != 'venta_producto') {
+      if (_superoLimiteReintentos(operacion)) {
         continue;
       }
 
-      await _sincronizarVentaProducto(operacion);
+      await _sincronizarOperacion(operacion);
     }
   }
 
-  Future<void> _sincronizarVentaProducto(OperacionPendiente operacion) async {
+  Future<void> reintentarErroresYConflictos() async {
+    final operaciones = await _operacionLocalService.listarPorEstados([
+      OperacionPendiente.estadoError,
+      OperacionPendiente.estadoConflicto,
+    ]);
+
+    for (final operacion in operaciones) {
+      await _operacionLocalService.resetearAPendiente(operacion.uuidOperacion);
+    }
+
+    await sincronizarPendientes();
+  }
+
+  Future<void> _sincronizarOperacion(OperacionPendiente operacion) async {
+    final handler = _handlersByTipo[operacion.tipoOperacion];
+
+    if (handler == null) {
+      await _manejarOperacionNoSoportada(operacion);
+      return;
+    }
+
     try {
       await _operacionLocalService.actualizarEstado(
         operacion.uuidOperacion,
         OperacionPendiente.estadoEnviando,
       );
-
-      final payload = jsonDecode(operacion.payloadJson) as Map<String, dynamic>;
-      final productoId = payload['producto_id'] as String?;
-      final cantidad = (payload['cantidad'] as num?)?.toInt();
-
-      if (productoId == null || productoId.isEmpty || cantidad == null) {
-        await _operacionLocalService.marcarConflicto(
-          operacion.uuidOperacion,
-          'Payload de venta_producto invalido.',
-        );
-        return;
-      }
-
-      await _ventaService.registrarProductoHttp(productoId, cantidad);
+      await handler.sincronizar(operacion);
       await _operacionLocalService.actualizarEstado(
         operacion.uuidOperacion,
         OperacionPendiente.estadoSincronizada,
       );
-    } catch (e) {
-      final mensaje = e.toString().replaceFirst('Exception: ', '').trim();
-
-      if (_esConflicto(mensaje)) {
-        await _operacionLocalService.marcarConflicto(
-          operacion.uuidOperacion,
-          mensaje,
-        );
-        return;
-      }
-
-      await _operacionLocalService.incrementarReintentos(operacion.uuidOperacion);
-      await _operacionLocalService.actualizarEstado(
+    } on OperacionConflictoException catch (error) {
+      await _operacionLocalService.marcarConflicto(
         operacion.uuidOperacion,
-        OperacionPendiente.estadoError,
+        error.mensaje,
+      );
+    } on OperacionTemporalException catch (error) {
+      await _manejarErrorReintentable(operacion, error.mensaje);
+    } catch (error) {
+      final mensaje = error.toString().replaceFirst('Exception: ', '').trim();
+      await _manejarErrorReintentable(
+        operacion,
+        mensaje.isEmpty ? 'Error desconocido al sincronizar.' : mensaje,
       );
     }
   }
 
-  bool _esConflicto(String mensaje) {
-    final normalizado = mensaje.toLowerCase();
+  Future<void> _manejarOperacionNoSoportada(OperacionPendiente operacion) async {
+    await _manejarErrorReintentable(
+      operacion,
+      'Tipo de operacion no soportado todavia: ${operacion.tipoOperacion}.',
+    );
+  }
 
-    return normalizado.contains('stock') ||
-        normalizado.contains('insuficiente') ||
-        normalizado.contains('no existe') ||
-        normalizado.contains('no encontrado') ||
-        normalizado.contains('agotado') ||
-        normalizado.contains('conflicto');
+  Future<void> _manejarErrorReintentable(
+    OperacionPendiente operacion,
+    String mensaje,
+  ) async {
+    final reintentos = await _operacionLocalService.incrementarReintentos(
+      operacion.uuidOperacion,
+    );
+    final motivo = _construirMotivoError(mensaje, reintentos);
+
+    await _operacionLocalService.actualizarEstado(
+      operacion.uuidOperacion,
+      OperacionPendiente.estadoError,
+      motivoConflicto: motivo,
+    );
+  }
+
+  bool _superoLimiteReintentos(OperacionPendiente operacion) {
+    return operacion.reintentos >
+        OperacionPendiente.maxReintentosSincronizacion;
+  }
+
+  String _construirMotivoError(String mensaje, int reintentos) {
+    if (reintentos > OperacionPendiente.maxReintentosSincronizacion) {
+      return '$mensaje Error definitivo tras superar el maximo de '
+          '${OperacionPendiente.maxReintentosSincronizacion} reintentos.';
+    }
+
+    return mensaje;
+  }
+
+  static Map<String, OperacionHandler> _crearMapaHandlers(
+    List<OperacionHandler> handlers,
+  ) {
+    final handlersByTipo = <String, OperacionHandler>{};
+
+    for (final handler in handlers) {
+      for (final tipo in handler.tiposSoportados) {
+        handlersByTipo[tipo] = handler;
+      }
+    }
+
+    return handlersByTipo;
   }
 }

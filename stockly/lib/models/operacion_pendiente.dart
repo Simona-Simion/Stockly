@@ -4,6 +4,11 @@ class OperacionPendiente {
   static const String estadoSincronizada = 'sincronizada';
   static const String estadoConflicto = 'conflicto';
   static const String estadoError = 'error';
+  static const String tipoVentaProducto = 'venta_producto';
+  static const String tipoMermaProducto = 'merma_producto';
+  static const String tipoMermaLegacy = 'merma';
+  static const String tipoVentaReceta = 'venta_receta';
+  static const int maxReintentosSincronizacion = 3;
 
   final int? idLocal;
   final String uuidOperacion;

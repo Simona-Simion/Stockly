@@ -92,7 +92,7 @@ class OperacionLocalService {
     );
   }
 
-  Future<void> incrementarReintentos(String uuidOperacion) async {
+  Future<int> incrementarReintentos(String uuidOperacion) async {
     final db = await _database;
     await db.rawUpdate(
       '''
@@ -102,6 +102,20 @@ class OperacionLocalService {
       ''',
       [uuidOperacion],
     );
+
+    final rows = await db.query(
+      LocalDatabaseService.tablaOperacionesPendientes,
+      columns: ['reintentos'],
+      where: 'uuid_operacion = ?',
+      whereArgs: [uuidOperacion],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      return 0;
+    }
+
+    return rows.first['reintentos'] as int? ?? 0;
   }
 
   Future<void> marcarConflicto(
@@ -117,6 +131,43 @@ class OperacionLocalService {
       },
       where: 'uuid_operacion = ?',
       whereArgs: [uuidOperacion],
+    );
+  }
+
+  Future<void> resetearAPendiente(String uuidOperacion) async {
+    final db = await _database;
+    await db.update(
+      LocalDatabaseService.tablaOperacionesPendientes,
+      {
+        'estado': OperacionPendiente.estadoPendiente,
+        'motivo_conflicto': null,
+        'reintentos': 0,
+      },
+      where: 'uuid_operacion = ?',
+      whereArgs: [uuidOperacion],
+    );
+  }
+
+  Future<void> resetearPorEstado(String estado) async {
+    final db = await _database;
+    await db.update(
+      LocalDatabaseService.tablaOperacionesPendientes,
+      {
+        'estado': OperacionPendiente.estadoPendiente,
+        'motivo_conflicto': null,
+        'reintentos': 0,
+      },
+      where: 'estado = ?',
+      whereArgs: [estado],
+    );
+  }
+
+  Future<void> eliminarPorEstado(String estado) async {
+    final db = await _database;
+    await db.delete(
+      LocalDatabaseService.tablaOperacionesPendientes,
+      where: 'estado = ?',
+      whereArgs: [estado],
     );
   }
 

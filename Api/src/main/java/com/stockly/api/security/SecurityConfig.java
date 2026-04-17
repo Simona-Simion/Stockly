@@ -13,7 +13,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity   // habilita @PreAuthorize en los controllers
+@EnableMethodSecurity // habilita @PreAuthorize en los controllers
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
@@ -25,19 +25,30 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .cors(Customizer.withDefaults())  // usa el CorsFilter existente en CorsConfig
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .csrf(csrf -> csrf.disable())
 
-                    .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                .requestMatchers("/api/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                // IMPORTANTE:
+                // Activa CORS usando la configuración definida en CorsConfig.
+                .cors(Customizer.withDefaults())
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                .authorizeHttpRequests(auth -> auth
+                        // IMPORTANTE:
+                        // Permitimos preflight del navegador para CORS.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll()
+                )
+
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

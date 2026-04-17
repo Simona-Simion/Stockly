@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../models/movimiento_stock.dart';
 import '../../services/movimiento_service.dart';
 
-// Elimina decimales innecesarios: 5.000 → "5", 0.070 → "0.07"
 String _formatCantidad(double v) {
   if (v == v.roundToDouble()) return v.toInt().toString();
   return v.toStringAsFixed(3)
@@ -12,8 +11,10 @@ String _formatCantidad(double v) {
       .replaceAll(RegExp(r'\.$'), '');
 }
 
-// Historial completo de movimientos de stock: ventas, mermas, entradas y ajustes.
-// Se ordena por fecha descendente (el más reciente primero).
+String _formatFechaHora(DateTime fecha) {
+  return DateFormat('dd/MM/yyyy HH:mm').format(fecha.toLocal());
+}
+
 class MovimientosScreen extends StatefulWidget {
   const MovimientosScreen({super.key});
 
@@ -27,7 +28,6 @@ class MovimientosScreenState extends State<MovimientosScreen> {
   bool _cargando = true;
   String? _error;
 
-  // Método público para que home_screen.dart lo llame vía GlobalKey
   void recargar() => _cargar();
 
   @override
@@ -41,12 +41,24 @@ class MovimientosScreenState extends State<MovimientosScreen> {
       _cargando = true;
       _error = null;
     });
+
     try {
-      _movimientos = await _service.listar();
+      final movimientos = await _service.listar();
+      movimientos.sort((a, b) => b.fecha.compareTo(a.fecha));
+
+      if (!mounted) return;
+      setState(() {
+        _movimientos = movimientos;
+      });
     } catch (e) {
-      _error = e.toString().replaceFirst('Exception: ', '');
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) {
+        setState(() => _cargando = false);
+      }
     }
   }
 
@@ -58,6 +70,7 @@ class MovimientosScreenState extends State<MovimientosScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Actualizar',
             onPressed: _cargar,
           ),
         ],
@@ -67,35 +80,119 @@ class MovimientosScreenState extends State<MovimientosScreen> {
   }
 
   Widget _buildCuerpo() {
-    if (_cargando) return const Center(child: CircularProgressIndicator());
+    if (_cargando) {
+      return const _MovimientosEstado(
+        icon: Icons.history,
+        mensaje: 'Cargando movimientos...',
+        child: CircularProgressIndicator(),
+      );
+    }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!),
-            ElevatedButton(onPressed: _cargar, child: const Text('Reintentar')),
-          ],
+      return _MovimientosEstado(
+        icon: Icons.error_outline,
+        mensaje: _error!,
+        color: Colors.red,
+        action: ElevatedButton.icon(
+          onPressed: _cargar,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Reintentar'),
         ),
       );
     }
 
     if (_movimientos.isEmpty) {
-      return const Center(
-        child: Text('Sin movimientos', style: TextStyle(color: Colors.grey)),
+      return const _MovimientosEstado(
+        icon: Icons.inventory_2_outlined,
+        mensaje: 'No hay movimientos registrados',
+        color: Colors.grey,
       );
     }
 
     return RefreshIndicator(
       onRefresh: _cargar,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _movimientos.length,
-        itemBuilder: (context, i) => _MovimientoCard(movimiento: _movimientos[i]),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) =>
+            _MovimientoCard(movimiento: _movimientos[i]),
       ),
     );
   }
+}
+
+class _MovimientosEstado extends StatelessWidget {
+  final Widget? child;
+  final IconData icon;
+  final String mensaje;
+  final Color? color;
+  final Widget? action;
+
+  const _MovimientosEstado({
+    this.child,
+    required this.icon,
+    required this.mensaje,
+    this.color,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedColor = color ?? Theme.of(context).colorScheme.primary;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (child != null) ...[
+              child!,
+              const SizedBox(height: 16),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: resolvedColor.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: resolvedColor, size: 28),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color == Colors.grey ? Colors.grey.shade700 : null,
+                fontSize: 15,
+              ),
+            ),
+            if (action != null) ...[
+              const SizedBox(height: 16),
+              action!,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MovimientoVisualConfig {
+  final IconData icono;
+  final Color color;
+  final String signo;
+  final String etiqueta;
+
+  const _MovimientoVisualConfig({
+    required this.icono,
+    required this.color,
+    required this.signo,
+    required this.etiqueta,
+  });
 }
 
 class _MovimientoCard extends StatelessWidget {
@@ -103,69 +200,169 @@ class _MovimientoCard extends StatelessWidget {
 
   const _MovimientoCard({required this.movimiento});
 
-  // Configuración visual según el tipo de movimiento
   static const _config = {
-    'VENTA': (Icons.point_of_sale, Colors.blue, '-'),
-    'MERMA': (Icons.delete, Colors.orange, '-'),
-    'ENTRADA': (Icons.add_shopping_cart, Colors.green, '+'),
-    'AJUSTE': (Icons.tune, Colors.purple, '±'),
+    'VENTA': _MovimientoVisualConfig(
+      icono: Icons.point_of_sale,
+      color: Colors.blue,
+      signo: '-',
+      etiqueta: 'Venta',
+    ),
+    'MERMA': _MovimientoVisualConfig(
+      icono: Icons.delete_outline,
+      color: Colors.orange,
+      signo: '-',
+      etiqueta: 'Merma',
+    ),
+    'ENTRADA': _MovimientoVisualConfig(
+      icono: Icons.south_west,
+      color: Colors.green,
+      signo: '+',
+      etiqueta: 'Entrada',
+    ),
+    'AJUSTE': _MovimientoVisualConfig(
+      icono: Icons.tune,
+      color: Colors.purple,
+      signo: '±',
+      etiqueta: 'Ajuste',
+    ),
   };
 
   @override
   Widget build(BuildContext context) {
     final cfg = _config[movimiento.tipo] ??
-        (Icons.swap_horiz, Colors.grey, '');
-    final (icono, color, signo) = cfg;
-    final fecha =
-        DateFormat('dd/MM/yyyy HH:mm').format(movimiento.fecha.toLocal());
+        const _MovimientoVisualConfig(
+          icono: Icons.swap_horiz,
+          color: Colors.grey,
+          signo: '',
+          etiqueta: 'Movimiento',
+        );
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(icono, color: color, size: 20),
-        ),
-        title: Text(
-          movimiento.productoNombre,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Column(
+    final detalles = <String>[
+      _formatFechaHora(movimiento.fecha),
+      if (movimiento.origen != null && movimiento.origen!.trim().isNotEmpty)
+        movimiento.origen!.replaceAll('_', ' '),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(fecha, style: const TextStyle(fontSize: 12)),
-            if (movimiento.motivo != null)
-              Text(movimiento.motivo!,
-                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '$signo${_formatCantidad(movimiento.cantidad)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
-                fontSize: 15,
-              ),
-            ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
+                color: cfg.color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                movimiento.tipo,
-                style: TextStyle(fontSize: 10, color: color),
+              child: Icon(cfg.icono, color: cfg.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          cfg.etiqueta,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      _TipoChip(
+                        texto: movimiento.tipo,
+                        color: cfg.color,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    movimiento.productoNombre,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    detalles.join(' . '),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  if (movimiento.motivo != null &&
+                      movimiento.motivo!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      movimiento.motivo!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${cfg.signo}${_formatCantidad(movimiento.cantidad)}',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: cfg.color,
               ),
             ),
           ],
         ),
-        isThreeLine: movimiento.motivo != null,
+      ),
+    );
+  }
+}
+
+class _TipoChip extends StatelessWidget {
+  final String texto;
+  final Color color;
+
+  const _TipoChip({
+    required this.texto,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

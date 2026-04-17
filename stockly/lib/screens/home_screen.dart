@@ -14,8 +14,6 @@ import 'ventas/registrar_venta_screen.dart';
 import 'mermas/registrar_merma_screen.dart';
 import 'movimientos/movimientos_screen.dart';
 
-//import 'package:supabase_flutter/supabase_flutter.dart';
-
 // Pantalla principal con navegación inferior entre las secciones de la app.
 // Las secciones visibles dependen del rol del usuario (ADMIN / EMPLEADO).
 class HomeScreen extends StatefulWidget {
@@ -29,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _indiceActual = 0;
   final _movimientosKey = GlobalKey<MovimientosScreenState>();
   final OperacionSyncRepository _operacionSyncRepository =
-      OperacionSyncRepository();
+  OperacionSyncRepository();
   bool _reintentandoSincronizacion = false;
 
   @override
@@ -78,6 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await context.read<AlertaProvider>().cargar();
 
+      if (!mounted) {
+        return;
+      }
+
       messenger.showSnackBar(
         const SnackBar(content: Text('Reintento de sincronizacion ejecutado.')),
       );
@@ -99,13 +101,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _mostrarAlertasStock() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _AlertasStockSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final alertaProvider = context.watch<AlertaProvider>();
     final esAdmin = auth.esAdmin;
     final nombreUsuario = auth.usuario?.nombre ?? auth.usuario?.email ?? '';
 
-    // ADMIN ve todas las secciones; EMPLEADO solo las operativas
     final pantallas = [
       if (esAdmin) const ProductosScreen(),
       if (esAdmin) const RecetasScreen(),
@@ -150,13 +161,54 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ];
 
-    // Ajusta el índice si cambia el número de pestañas (p.ej. al cargar el perfil)
     final indiceSeguro = _indiceActual.clamp(0, pantallas.length - 1);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Stockly'),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: IconButton(
+              tooltip: 'Alertas de stock',
+              onPressed: _mostrarAlertasStock,
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    alertaProvider.tieneAlertas
+                        ? Icons.warning_amber_rounded
+                        : Icons.notifications_none_rounded,
+                  ),
+                  if (alertaProvider.alertas.isNotEmpty)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18),
+                        child: Text(
+                          alertaProvider.alertas.length.toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
           if (nombreUsuario.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -186,10 +238,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     : _reintentarSincronizacion,
                 icon: _reintentandoSincronizacion
                     ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
                     : const Icon(Icons.sync),
                 label: Text(
                   _reintentandoSincronizacion
@@ -199,13 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _AlertasStockCard(),
-          ),
           Expanded(
             child: IndexedStack(
-              // IndexedStack mantiene el estado de todas las pantallas
               index: indiceSeguro,
               children: pantallas,
             ),
@@ -221,8 +268,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _AlertasStockCard extends StatelessWidget {
-  const _AlertasStockCard();
+class _AlertasStockSheet extends StatelessWidget {
+  const _AlertasStockSheet();
 
   String _formatearCantidad(double cantidad) {
     if (cantidad == cantidad.roundToDouble()) {
@@ -233,77 +280,95 @@ class _AlertasStockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AlertaProvider>();
     final theme = Theme.of(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Card(
+    return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding + 16),
+        child: Consumer<AlertaProvider>(
+          builder: (context, provider, _) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Alertas de stock',
-                    style: theme.textTheme.titleMedium,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Alertas de stock',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: provider.cargando
+                          ? null
+                          : () => context.read<AlertaProvider>().cargar(),
+                      tooltip: 'Recargar alertas',
+                      icon: provider.cargando
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : const Icon(Icons.refresh),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: provider.cargando
-                      ? null
-                      : () => context.read<AlertaProvider>().cargar(),
-                  tooltip: 'Recargar alertas',
-                  icon: provider.cargando
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (provider.cargando && !provider.cargadoInicial)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (provider.error != null)
-              Text(
-                'No se pudieron cargar las alertas de stock.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              )
-            else if (!provider.tieneAlertas)
-              const Text('No hay alertas de stock')
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: provider.alertas
-                        .map(
-                          (producto) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _AlertaStockItem(
-                              producto: producto,
-                              formatearCantidad: _formatearCantidad,
+                const SizedBox(height: 8),
+
+                // FIX:
+                // Mejor usar una altura máxima controlada en el modal que Flexible,
+                // para evitar comportamientos raros en web/móvil.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: Builder(
+                    builder: (_) {
+                      if (provider.cargando && !provider.cargadoInicial) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (provider.error != null) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'No se pudieron cargar las alertas de stock.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.error,
                             ),
                           ),
-                        )
-                        .toList(),
+                        );
+                      }
+
+                      if (!provider.tieneAlertas) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'No hay alertas de stock.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: provider.alertas.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final producto = provider.alertas[index];
+                          return _AlertaStockItem(
+                            producto: producto,
+                            formatearCantidad: _formatearCantidad,
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

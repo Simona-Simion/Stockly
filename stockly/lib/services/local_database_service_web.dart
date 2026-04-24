@@ -10,6 +10,7 @@ class LocalDatabaseService {
   static const String tablaRecetas = 'recetas';
   static const String tablaRecetaLineas = 'receta_lineas';
   static const String tablaOperacionesPendientes = 'operaciones_pendientes';
+  static const String tablaUsuarios = 'usuarios';
 
   final Connectivity _connectivity = Connectivity();
   final Uuid _uuid = const Uuid();

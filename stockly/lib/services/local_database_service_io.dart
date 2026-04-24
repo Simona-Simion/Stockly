@@ -9,11 +9,12 @@ class LocalDatabaseService {
   static final LocalDatabaseService instance = LocalDatabaseService._();
 
   static const String _databaseName = 'stockly_local.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
   static const String tablaProductos = 'productos';
   static const String tablaRecetas = 'recetas';
   static const String tablaRecetaLineas = 'lineas_receta';
   static const String tablaOperacionesPendientes = 'operaciones_pendientes';
+  static const String tablaUsuarios = 'usuarios';
   static const int _debugSampleLimit = 5;
 
   final Connectivity _connectivity = Connectivity();
@@ -122,11 +123,33 @@ class LocalDatabaseService {
         reintentos INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE $tablaUsuarios (
+        id TEXT PRIMARY KEY,
+        supabase_user_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        nombre TEXT NOT NULL,
+        rol TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, newVersion);
+    }
+
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tablaUsuarios (
+          id TEXT PRIMARY KEY,
+          supabase_user_id TEXT NOT NULL,
+          email TEXT NOT NULL,
+          nombre TEXT NOT NULL,
+          rol TEXT NOT NULL
+        )
+      ''');
     }
   }
 
@@ -136,6 +159,7 @@ class LocalDatabaseService {
     await _debugMostrarResumenTabla(db, tablaProductos);
     await _debugMostrarResumenTabla(db, tablaRecetas);
     await _debugMostrarResumenTabla(db, tablaRecetaLineas);
+    await _debugMostrarResumenTabla(db, tablaUsuarios);
     await _debugMostrarResumenTabla(
       db,
       tablaOperacionesPendientes,

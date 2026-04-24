@@ -32,36 +32,29 @@ class UsuarioService {
     if (session == null) {
       throw const UsuarioAuthException('Sin sesion activa');
     }
-    final token = session.accessToken;
 
     print('API GET /api/auth/me');
-    print(
-      'API token: ${token.length > 20 ? '${token.substring(0, 20)}...' : token}',
-    );
 
     try {
       final response = await http.get(
         Uri.parse('$apiBaseUrl/api/auth/me'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer ${session.accessToken}',
         },
       ).timeout(const Duration(seconds: 10));
 
       print('API statusCode: ${response.statusCode}');
-      print('API body: ${response.body}');
 
       if (response.statusCode == 200) {
         return Usuario.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('API auth invalida /api/auth/me con status ${response.statusCode}');
+        print('API auth invalida status ${response.statusCode}');
         throw UsuarioAuthException(
           'Error de autenticacion al cargar perfil: ${response.statusCode}',
         );
       } else if (response.statusCode >= 500) {
-        print(
-          'API backend no disponible /api/auth/me con status ${response.statusCode}',
-        );
+        print('API backend no disponible status ${response.statusCode}');
         throw UsuarioNetworkException(
           'Backend no disponible al cargar perfil: ${response.statusCode}',
         );

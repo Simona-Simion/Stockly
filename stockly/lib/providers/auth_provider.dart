@@ -23,23 +23,17 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider() {
     _session = Supabase.instance.client.auth.currentSession;
     print('AUTH session existe: ${_session != null}');
-    print('AUTH user id: ${_session?.user.id}');
-    print('AUTH email: ${_session?.user.email}');
-    print('AUTH access token null?: ${_session?.accessToken == null}');
     if (_session != null) _cargarPerfil();
 
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       _session = data.session;
       print('AUTH session existe: ${_session != null}');
-      print('AUTH user id: ${_session?.user.id}');
-      print('AUTH email: ${_session?.user.email}');
-      print('AUTH access token null?: ${_session?.accessToken == null}');
       if (_session != null) {
         _cargarPerfil();
       } else {
         _perfilCargando = false;
         _usuario = null;
-        print('AUTH notifyListeners ejecutado con sesion cerrada');
+        print('AUTH sesion cerrada');
         notifyListeners();
       }
     });
@@ -56,16 +50,7 @@ class AuthProvider extends ChangeNotifier {
       try {
         print('AUTH llamando a /api/auth/me');
         _usuario = await _usuarioService.fetchPerfil();
-        print(
-          'AUTH usuario recibido: ${{
-            'id': _usuario?.id,
-            'supabaseUserId': _usuario?.supabaseUserId,
-            'email': _usuario?.email,
-            'nombre': _usuario?.nombre,
-            'rol': _usuario?.rol.name,
-          }}',
-        );
-        print('AUTH rol recibido: ${_usuario?.rol.name}');
+        print('AUTH perfil cargado online');
         try {
           await _usuarioLocalService.guardarUsuario(_usuario!);
           print('AUTH usuario guardado en local');
@@ -83,7 +68,6 @@ class AuthProvider extends ChangeNotifier {
               _usuario = usuarioLocal;
               _perfilCargando = false;
               print('AUTH perfil cargado desde local por error de red/backend');
-              print('AUTH notifyListeners ejecutado con usuario local');
               notifyListeners();
               return;
             }
@@ -94,7 +78,6 @@ class AuthProvider extends ChangeNotifier {
           _usuario = null;
           _perfilCargando = false;
           print('AUTH sin usuario local disponible por error de red/backend');
-          print('AUTH notifyListeners ejecutado sin limpiar sesion');
           notifyListeners();
           return;
         }
@@ -103,12 +86,10 @@ class AuthProvider extends ChangeNotifier {
         _perfilCargando = false;
         _session = null;
         print('AUTH perfil no disponible, sesion limpiada');
-        print('AUTH notifyListeners ejecutado con sesion invalida');
         notifyListeners();
         return;
       }
       _perfilCargando = false;
-      print('AUTH notifyListeners ejecutado con rol=${_usuario?.rol.name}');
       notifyListeners();
 
       // FCM es opcional: los errores no deben afectar al perfil ni al rol
@@ -133,9 +114,6 @@ class AuthProvider extends ChangeNotifier {
       );
       _session = response.session;
       print('AUTH session existe: ${_session != null}');
-      print('AUTH user id: ${_session?.user.id}');
-      print('AUTH email: ${_session?.user.email}');
-      print('AUTH access token null?: ${_session?.accessToken == null}');
       await _cargarPerfil();
       if (_session == null || _usuario == null) {
         print('AUTH login incompleto: usuario null tras cargar perfil');

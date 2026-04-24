@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+//import 'package:stockly/services/local_database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
   );
   await FcmService.solicitarPermiso();
   await LocalDatabaseService.instance.initialize();
+  //await LocalDatabaseService.instance.resetearOperacionesEnviando();
 
   runApp(
     MultiProvider(
@@ -60,7 +62,7 @@ class StocklyApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      // Redirige a login o a la app según el estado de autenticación
+      // Redirige a login o a la app segun el estado de autenticacion
       home: const _AppBootstrap(child: _AuthGate()),
     );
   }
@@ -102,7 +104,28 @@ class _AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final autenticado = context.watch<AuthProvider>().isAuthenticated;
-    return autenticado ? const HomeScreen() : const LoginScreen();
+    final authProvider = context.watch<AuthProvider>();
+
+    print('AUTH_GATE build');
+    print('AUTH_GATE autenticado: ${authProvider.isAuthenticated}');
+    print('AUTH_GATE perfilCargando: ${authProvider.perfilCargando}');
+    print('AUTH_GATE usuario cargado: ${authProvider.usuario != null}');
+
+    if (authProvider.isAuthenticated && authProvider.perfilCargando) {
+      print('AUTH_GATE mostrando carga');
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (authProvider.isAuthenticated && authProvider.usuario != null) {
+      print('AUTH_GATE mostrando HOME');
+      return const HomeScreen();
+    }
+
+    print('AUTH_GATE mostrando LOGIN');
+    return const LoginScreen();
   }
 }

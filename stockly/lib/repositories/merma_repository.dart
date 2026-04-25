@@ -11,8 +11,9 @@ class MermaRepository {
   MermaRepository({
     ProductoLocalService? productoLocalService,
     OperacionLocalService? operacionLocalService,
-  })  : _productoLocalService = productoLocalService ?? ProductoLocalService(),
-        _operacionLocalService = operacionLocalService ?? OperacionLocalService();
+  }) : _productoLocalService = productoLocalService ?? ProductoLocalService(),
+       _operacionLocalService =
+           operacionLocalService ?? OperacionLocalService();
 
   final ProductoLocalService _productoLocalService;
   final OperacionLocalService _operacionLocalService;
@@ -31,7 +32,9 @@ class MermaRepository {
     }
 
     final hasNetwork = await localDatabaseService.hasNetworkConnection();
-    if (hasNetwork) {
+    final backendAvailable = hasNetwork && await _api.isBackendAvailable();
+
+    if (backendAvailable) {
       await registrarMermaHttp(productoId, cantidad, motivo);
       return;
     }
@@ -39,10 +42,8 @@ class MermaRepository {
     final db = await localDatabaseService.database;
 
     await db.transaction((txn) async {
-      final producto = await _productoLocalService.obtenerProductoPorIdEnTransaccion(
-        txn,
-        productoId,
-      );
+      final producto = await _productoLocalService
+          .obtenerProductoPorIdEnTransaccion(txn, productoId);
 
       if (producto == null) {
         throw Exception('El producto no existe en la base local.');
@@ -52,11 +53,8 @@ class MermaRepository {
         throw Exception('Stock local insuficiente para registrar la merma.');
       }
 
-      final descontado = await _productoLocalService.descontarStockEnTransaccion(
-        txn,
-        productoId,
-        cantidad,
-      );
+      final descontado = await _productoLocalService
+          .descontarStockEnTransaccion(txn, productoId, cantidad);
 
       if (!descontado) {
         throw Exception('No se pudo descontar stock local para la merma.');
@@ -75,7 +73,10 @@ class MermaRepository {
         estado: OperacionPendiente.estadoPendiente,
       );
 
-      await _operacionLocalService.insertarOperacionEnTransaccion(txn, operacion);
+      await _operacionLocalService.insertarOperacionEnTransaccion(
+        txn,
+        operacion,
+      );
     });
   }
 

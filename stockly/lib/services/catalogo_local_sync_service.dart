@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import '../models/producto.dart';
 import '../models/receta.dart';
@@ -13,9 +13,9 @@ class CatalogoLocalSyncService {
     ApiService? apiService,
     ProductoLocalService? productoLocalService,
     RecetaLocalService? recetaLocalService,
-  })  : _apiService = apiService ?? ApiService(),
-        _productoLocalService = productoLocalService ?? ProductoLocalService(),
-        _recetaLocalService = recetaLocalService ?? RecetaLocalService();
+  }) : _apiService = apiService ?? ApiService(),
+       _productoLocalService = productoLocalService ?? ProductoLocalService(),
+       _recetaLocalService = recetaLocalService ?? RecetaLocalService();
 
   final ApiService _apiService;
   final ProductoLocalService _productoLocalService;
@@ -59,10 +59,13 @@ class CatalogoLocalSyncService {
       await db.transaction((txn) async {
         if (reemplazarTodo) {
           await _recetaLocalService.eliminarTodasEnTransaccion(txn);
-          await _productoLocalService.eliminarTodosEnTransaccion(txn);
         }
 
-        await _productoLocalService.guardarProductosEnTransaccion(txn, productos);
+        await _productoLocalService
+            .guardarProductosDesdeServidorSinMachacarStockEnTransaccion(
+              txn,
+              productos,
+            );
         await _recetaLocalService.guardarRecetasEnTransaccion(txn, recetas);
 
         for (final receta in recetas) {

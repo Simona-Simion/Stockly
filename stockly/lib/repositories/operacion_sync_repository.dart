@@ -1,6 +1,3 @@
-
-
-
 import '../models/operacion_pendiente.dart';
 import '../services/local_database_service.dart';
 import '../services/merma_service.dart';
@@ -18,23 +15,25 @@ class OperacionSyncRepository {
     VentaService? ventaService,
     MermaService? mermaService,
     List<OperacionHandler>? handlers,
-  })  : _operacionLocalService = operacionLocalService ?? OperacionLocalService(),
-        _handlersByTipo = _crearMapaHandlers(
-          handlers ??
-              [
-                VentaProductoHandler(ventaService: ventaService),
-                MermaProductoHandler(mermaService: mermaService),
-                VentaRecetaHandler(ventaService: ventaService),
-              ],
-        );
+  }) : _operacionLocalService =
+           operacionLocalService ?? OperacionLocalService(),
+       _handlersByTipo = _crearMapaHandlers(
+         handlers ??
+             [
+               VentaProductoHandler(ventaService: ventaService),
+               MermaProductoHandler(mermaService: mermaService),
+               VentaRecetaHandler(ventaService: ventaService),
+             ],
+       );
 
   final OperacionLocalService _operacionLocalService;
   final Map<String, OperacionHandler> _handlersByTipo;
+  bool _sincronizacionEnCurso = false;
 
   Future<void> sincronizarPendientes() async {
     final localDatabaseService = LocalDatabaseService.instance;
 
-    if (!localDatabaseService.isSupported) {
+    if (!localDatabaseService.isSupported || _sincronizacionEnCurso) {
       return;
     }
 
@@ -43,17 +42,22 @@ class OperacionSyncRepository {
       return;
     }
 
-    final operaciones = await _operacionLocalService.listarPorEstados([
-      OperacionPendiente.estadoPendiente,
-      OperacionPendiente.estadoError,
-    ]);
+    _sincronizacionEnCurso = true;
 
-    for (final operacion in operaciones) {
-      if (_superoLimiteReintentos(operacion)) {
-        continue;
+    try {
+      await _operacionLocalService.resetearOperacionesEnviandoAPendiente();
+      final operaciones = await _operacionLocalService
+          .listarPendientesOrdenadas();
+
+      for (final operacion in operaciones) {
+        if (_superoLimiteReintentos(operacion)) {
+          continue;
+        }
+
+        await _sincronizarOperacion(operacion);
       }
-
-      await _sincronizarOperacion(operacion);
+    } finally {
+      _sincronizacionEnCurso = false;
     }
   }
 
@@ -64,13 +68,20 @@ class OperacionSyncRepository {
     ]);
 
     for (final operacion in operaciones) {
-      await _operacionLocalService.resetearAPendiente(operacion.uuidOperacion);
+      await _operacionLocalService.marcarComoPendiente(operacion.uuidOperacion);
     }
 
     await sincronizarPendientes();
   }
 
   Future<void> _sincronizarOperacion(OperacionPendiente operacion) async {
+    final filasAfectadas = await _operacionLocalService.marcarComoEnviando(
+      operacion.uuidOperacion,
+    );
+    if (filasAfectadas == 0) {
+      return;
+    }
+
     final handler = _handlersByTipo[operacion.tipoOperacion];
 
     if (handler == null) {
@@ -79,19 +90,14 @@ class OperacionSyncRepository {
     }
 
     try {
-      await _operacionLocalService.actualizarEstado(
-        operacion.uuidOperacion,
-        OperacionPendiente.estadoEnviando,
-      );
       await handler.sincronizar(operacion);
-      await _operacionLocalService.actualizarEstado(
+      await _operacionLocalService.marcarComoSincronizada(
         operacion.uuidOperacion,
-        OperacionPendiente.estadoSincronizada,
       );
     } on OperacionConflictoException catch (error) {
-      await _operacionLocalService.marcarConflicto(
+      await _operacionLocalService.marcarComoConflicto(
         operacion.uuidOperacion,
-        error.mensaje,
+        motivo: error.mensaje,
       );
     } on OperacionTemporalException catch (error) {
       await _manejarErrorReintentable(operacion, error.mensaje);
@@ -104,7 +110,9 @@ class OperacionSyncRepository {
     }
   }
 
-  Future<void> _manejarOperacionNoSoportada(OperacionPendiente operacion) async {
+  Future<void> _manejarOperacionNoSoportada(
+    OperacionPendiente operacion,
+  ) async {
     await _manejarErrorReintentable(
       operacion,
       'Tipo de operacion no soportado todavia: ${operacion.tipoOperacion}.',
@@ -115,15 +123,10 @@ class OperacionSyncRepository {
     OperacionPendiente operacion,
     String mensaje,
   ) async {
-    final reintentos = await _operacionLocalService.incrementarReintentos(
+    final motivo = _construirMotivoError(mensaje, operacion.reintentos + 1);
+    await _operacionLocalService.incrementarReintentoYMarcarPendiente(
       operacion.uuidOperacion,
-    );
-    final motivo = _construirMotivoError(mensaje, reintentos);
-
-    await _operacionLocalService.actualizarEstado(
-      operacion.uuidOperacion,
-      OperacionPendiente.estadoError,
-      motivoConflicto: motivo,
+      motivo: motivo,
     );
   }
 

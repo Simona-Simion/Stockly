@@ -7,6 +7,12 @@ class ProductoLocalService {
   Future<Database> get _database async =>
       LocalDatabaseService.instance.database;
 
+  static const List<String> _estadosQueProtegenStock = [
+    'pendiente',
+    'enviando',
+    'conflicto',
+  ];
+
   Future<void> guardarProducto(Producto producto) async {
     final db = await _database;
     await db.insert(
@@ -23,6 +29,18 @@ class ProductoLocalService {
     });
   }
 
+  Future<void> guardarProductosDesdeServidorSinMachacarStock(
+    List<Producto> productos,
+  ) async {
+    final db = await _database;
+    await db.transaction((txn) async {
+      await guardarProductosDesdeServidorSinMachacarStockEnTransaccion(
+        txn,
+        productos,
+      );
+    });
+  }
+
   Future<void> guardarProductosEnTransaccion(
     DatabaseExecutor executor,
     List<Producto> productos,
@@ -36,6 +54,42 @@ class ProductoLocalService {
       );
     }
     await batch.commit(noResult: true);
+  }
+
+  Future<void> guardarProductosDesdeServidorSinMachacarStockEnTransaccion(
+    DatabaseExecutor executor,
+    List<Producto> productos,
+  ) async {
+    final hayOperacionesPendientes =
+        await _hayOperacionesPendientesQueProtegenStock(executor);
+
+    for (final producto in productos) {
+      final productoExistente = await obtenerProductoPorIdEnTransaccion(
+        executor,
+        producto.id,
+      );
+
+      if (productoExistente == null) {
+        await executor.insert(
+          LocalDatabaseService.tablaProductos,
+          _toMap(producto),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        continue;
+      }
+
+      final datosActualizados = _toMap(producto);
+      if (hayOperacionesPendientes) {
+        datosActualizados.remove('stock_actual');
+      }
+
+      await executor.update(
+        LocalDatabaseService.tablaProductos,
+        datosActualizados,
+        where: 'id = ?',
+        whereArgs: [producto.id],
+      );
+    }
   }
 
   Future<void> reemplazarTodos(List<Producto> productos) async {
@@ -90,9 +144,7 @@ class ProductoLocalService {
   ) async {
     await executor.update(
       LocalDatabaseService.tablaProductos,
-      {
-        'stock_actual': nuevoStock,
-      },
+      {'stock_actual': nuevoStock},
       where: 'id = ?',
       whereArgs: [productoId],
     );
@@ -103,7 +155,10 @@ class ProductoLocalService {
     String productoId,
     double cantidad,
   ) async {
-    final producto = await obtenerProductoPorIdEnTransaccion(executor, productoId);
+    final producto = await obtenerProductoPorIdEnTransaccion(
+      executor,
+      productoId,
+    );
 
     if (producto == null) {
       return false;
@@ -161,5 +216,22 @@ class ProductoLocalService {
       'activo': producto.activo ? 1 : 0,
       'updated_at': null,
     };
+  }
+
+  Future<bool> _hayOperacionesPendientesQueProtegenStock(
+    DatabaseExecutor executor,
+  ) async {
+    final placeholders = List.filled(
+      _estadosQueProtegenStock.length,
+      '?',
+    ).join(', ');
+    final rows = await executor.rawQuery('''
+      SELECT 1
+      FROM ${LocalDatabaseService.tablaOperacionesPendientes}
+      WHERE estado IN ($placeholders)
+      LIMIT 1
+      ''', _estadosQueProtegenStock);
+
+    return rows.isNotEmpty;
   }
 }

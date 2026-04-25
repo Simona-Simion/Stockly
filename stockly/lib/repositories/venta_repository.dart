@@ -13,9 +13,10 @@ class VentaRepository {
     ProductoLocalService? productoLocalService,
     RecetaLocalService? recetaLocalService,
     OperacionLocalService? operacionLocalService,
-  })  : _productoLocalService = productoLocalService ?? ProductoLocalService(),
-        _recetaLocalService = recetaLocalService ?? RecetaLocalService(),
-        _operacionLocalService = operacionLocalService ?? OperacionLocalService();
+  }) : _productoLocalService = productoLocalService ?? ProductoLocalService(),
+       _recetaLocalService = recetaLocalService ?? RecetaLocalService(),
+       _operacionLocalService =
+           operacionLocalService ?? OperacionLocalService();
 
   final ProductoLocalService _productoLocalService;
   final RecetaLocalService _recetaLocalService;
@@ -31,7 +32,9 @@ class VentaRepository {
     }
 
     final hasNetwork = await localDatabaseService.hasNetworkConnection();
-    if (hasNetwork) {
+    final backendAvailable = hasNetwork && await _api.isBackendAvailable();
+
+    if (backendAvailable) {
       await _registrarRecetaHttp(recetaId, cantidad);
       return;
     }
@@ -39,10 +42,8 @@ class VentaRepository {
     final db = await localDatabaseService.database;
 
     await db.transaction((txn) async {
-      final receta = await _recetaLocalService.obtenerRecetaCompletaPorIdEnTransaccion(
-        txn,
-        recetaId,
-      );
+      final receta = await _recetaLocalService
+          .obtenerRecetaCompletaPorIdEnTransaccion(txn, recetaId);
 
       if (receta == null) {
         throw Exception('La receta no existe en la base local.');
@@ -53,10 +54,8 @@ class VentaRepository {
       }
 
       for (final linea in receta.lineas) {
-        final producto = await _productoLocalService.obtenerProductoPorIdEnTransaccion(
-          txn,
-          linea.productoId,
-        );
+        final producto = await _productoLocalService
+            .obtenerProductoPorIdEnTransaccion(txn, linea.productoId);
 
         if (producto == null) {
           throw Exception(
@@ -77,10 +76,8 @@ class VentaRepository {
       }
 
       for (final linea in receta.lineas) {
-        final producto = await _productoLocalService.obtenerProductoPorIdEnTransaccion(
-          txn,
-          linea.productoId,
-        );
+        final producto = await _productoLocalService
+            .obtenerProductoPorIdEnTransaccion(txn, linea.productoId);
 
         if (producto == null) {
           throw Exception(
@@ -93,11 +90,12 @@ class VentaRepository {
           unidadReceta: linea.unidadMedida,
           unidadProducto: producto.unidadMedidaNombre,
         );
-        final descontado = await _productoLocalService.descontarStockEnTransaccion(
-          txn,
-          linea.productoId,
-          cantidadNecesaria,
-        );
+        final descontado = await _productoLocalService
+            .descontarStockEnTransaccion(
+              txn,
+              linea.productoId,
+              cantidadNecesaria,
+            );
 
         if (!descontado) {
           throw Exception(
@@ -110,15 +108,15 @@ class VentaRepository {
         uuidOperacion: localDatabaseService.generateOperationUuid(),
         tipoOperacion: OperacionPendiente.tipoVentaReceta,
         referenciaId: recetaId,
-        payloadJson: jsonEncode({
-          'recetaId': recetaId,
-          'cantidad': cantidad,
-        }),
+        payloadJson: jsonEncode({'recetaId': recetaId, 'cantidad': cantidad}),
         fechaCreacionLocal: DateTime.now().toIso8601String(),
         estado: OperacionPendiente.estadoPendiente,
       );
 
-      await _operacionLocalService.insertarOperacionEnTransaccion(txn, operacion);
+      await _operacionLocalService.insertarOperacionEnTransaccion(
+        txn,
+        operacion,
+      );
     });
   }
 
@@ -131,7 +129,9 @@ class VentaRepository {
     }
 
     final hasNetwork = await localDatabaseService.hasNetworkConnection();
-    if (hasNetwork) {
+    final backendAvailable = hasNetwork && await _api.isBackendAvailable();
+
+    if (backendAvailable) {
       await _registrarProductoHttp(productoId, cantidad);
       return;
     }
@@ -139,10 +139,8 @@ class VentaRepository {
     final db = await localDatabaseService.database;
 
     await db.transaction((txn) async {
-      final producto = await _productoLocalService.obtenerProductoPorIdEnTransaccion(
-        txn,
-        productoId,
-      );
+      final producto = await _productoLocalService
+          .obtenerProductoPorIdEnTransaccion(txn, productoId);
 
       if (producto == null) {
         throw Exception('El producto no existe en la base local.');
@@ -165,7 +163,10 @@ class VentaRepository {
         estado: OperacionPendiente.estadoPendiente,
       );
 
-      await _operacionLocalService.insertarOperacionEnTransaccion(txn, operacion);
+      await _operacionLocalService.insertarOperacionEnTransaccion(
+        txn,
+        operacion,
+      );
       await _productoLocalService.descontarStockEnTransaccion(
         txn,
         productoId,
@@ -203,7 +204,9 @@ class VentaRepository {
     );
 
     if (cantidadRecetaEnCl != null) {
-      final capacidadProductoEnCl = _extraerCapacidadProductoEnCl(unidadProducto);
+      final capacidadProductoEnCl = _extraerCapacidadProductoEnCl(
+        unidadProducto,
+      );
       if (capacidadProductoEnCl != null && capacidadProductoEnCl > 0) {
         return cantidadRecetaEnCl / capacidadProductoEnCl;
       }
@@ -275,9 +278,6 @@ class VentaRepository {
       return null;
     }
 
-    return _convertirAVolumenBaseCl(
-      cantidad: valor,
-      unidad: unidadCapacidad,
-    );
+    return _convertirAVolumenBaseCl(cantidad: valor, unidad: unidadCapacidad);
   }
 }

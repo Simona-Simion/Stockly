@@ -1,8 +1,10 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:stockly/repositories/operacion_sync_repository.dart';
+import '../utils/constants.dart';
 import 'api_service.dart';
 import 'catalogo_local_sync_service.dart';
 import 'local_database_service.dart';
@@ -12,11 +14,11 @@ class AutoSyncService {
     OperacionSyncRepository? operacionSyncRepository,
     ApiService? apiService,
     CatalogoLocalSyncService? catalogoLocalSyncService,
-  })  : _operacionSyncRepository =
-            operacionSyncRepository ?? OperacionSyncRepository(),
-        _apiService = apiService ?? ApiService(),
-        _catalogoLocalSyncService =
-            catalogoLocalSyncService ?? CatalogoLocalSyncService();
+  }) : _operacionSyncRepository =
+           operacionSyncRepository ?? OperacionSyncRepository(),
+       _apiService = apiService ?? ApiService(),
+       _catalogoLocalSyncService =
+           catalogoLocalSyncService ?? CatalogoLocalSyncService();
 
   final OperacionSyncRepository _operacionSyncRepository;
   final ApiService _apiService;
@@ -29,6 +31,9 @@ class AutoSyncService {
   Future<void> start() async {
     final localDatabaseService = LocalDatabaseService.instance;
 
+    print('AUTOSYNC start');
+    print('AUTOSYNC apiBaseUrl: $apiBaseUrl');
+
     if (!localDatabaseService.isSupported) {
       return;
     }
@@ -40,24 +45,24 @@ class AutoSyncService {
     final hasNetwork = await localDatabaseService.hasNetworkConnection();
     _wasOffline = !hasNetwork;
 
-    _connectivitySubscription =
-        localDatabaseService.onConnectivityChanged.listen((results) async {
-      final hasNetwork = results.any(
-        (result) => result != ConnectivityResult.none,
-      );
+    _connectivitySubscription = localDatabaseService.onConnectivityChanged
+        .listen((results) async {
+          final hasNetwork = results.any(
+            (result) => result != ConnectivityResult.none,
+          );
 
-      if (!hasNetwork) {
-        _wasOffline = true;
-        return;
-      }
+          if (!hasNetwork) {
+            _wasOffline = true;
+            return;
+          }
 
-      if (!_wasOffline) {
-        return;
-      }
+          if (!_wasOffline) {
+            return;
+          }
 
-      _wasOffline = false;
-      await sincronizarSiCorresponde();
-    });
+          _wasOffline = false;
+          await sincronizarSiCorresponde();
+        });
 
     if (hasNetwork) {
       await sincronizarSiCorresponde();
@@ -66,8 +71,14 @@ class AutoSyncService {
 
   Future<void> sincronizarSiCorresponde() async {
     final localDatabaseService = LocalDatabaseService.instance;
+    final session = Supabase.instance.client.auth.currentSession;
 
     if (!localDatabaseService.isSupported || _isSyncing) {
+      return;
+    }
+
+    if (session == null) {
+      print('AUTOSYNC cancelado: no hay sesion');
       return;
     }
 
@@ -80,14 +91,21 @@ class AutoSyncService {
     final backendAvailable = await _apiService.isBackendAvailable();
     if (!backendAvailable) {
       _wasOffline = true;
+      print('AUTOSYNC backend no disponible');
       return;
     }
 
     _isSyncing = true;
 
     try {
+      print('AUTOSYNC iniciando sincronizacion');
       await _operacionSyncRepository.sincronizarPendientes();
       await _catalogoLocalSyncService.refrescarDesdeBackend();
+      print('AUTOSYNC sincronizacion completada');
+    } catch (e, st) {
+      print('AUTOSYNC error en sincronizacion inicial: $e');
+      print('AUTOSYNC stacktrace: $st');
+      _wasOffline = true;
     } finally {
       _isSyncing = false;
     }

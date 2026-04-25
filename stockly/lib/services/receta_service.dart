@@ -1,4 +1,4 @@
-﻿import '../models/receta.dart';
+import '../models/receta.dart';
 import '../utils/constants.dart';
 import 'api_service.dart';
 import 'catalogo_local_sync_service.dart';
@@ -15,11 +15,13 @@ class RecetaService {
 
   Future<List<Receta>> listar() async {
     final hasNetwork = await _localDatabaseService.hasNetworkConnection();
+    final backendAvailable = hasNetwork && await _api.isBackendAvailable();
 
-    if (hasNetwork) {
+    if (backendAvailable) {
       final recetas = await _catalogoLocalSyncService.obtenerRecetasRemotas();
       if (_localDatabaseService.isSupported) {
-        final productos = await _catalogoLocalSyncService.obtenerProductosRemotos();
+        final productos = await _catalogoLocalSyncService
+            .obtenerProductosRemotos();
         await _catalogoLocalSyncService.guardarCatalogo(
           productos: productos,
           recetas: recetas,
@@ -43,11 +45,13 @@ class RecetaService {
 
   Future<Receta> obtener(String id) async {
     final hasNetwork = await _localDatabaseService.hasNetworkConnection();
+    final backendAvailable = hasNetwork && await _api.isBackendAvailable();
 
-    if (hasNetwork) {
+    if (backendAvailable) {
       final receta = await obtenerRemoto(id);
       if (_localDatabaseService.isSupported) {
-        final productos = await _catalogoLocalSyncService.obtenerProductosRemotos();
+        final productos = await _catalogoLocalSyncService
+            .obtenerProductosRemotos();
         await _catalogoLocalSyncService.guardarCatalogo(
           productos: productos,
           recetas: [receta],

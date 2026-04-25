@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../models/operacion_pendiente.dart';
+import '../../services/api_service.dart';
 import 'operacion_handler.dart';
 import 'operacion_sync_exception.dart';
 
@@ -28,6 +29,22 @@ abstract class BaseOperacionHandler extends OperacionHandler {
   }
 
   Never relanzarErrorBackend(Object error) {
+    if (error is ApiRequestException) {
+      final mensaje = error.message.trim();
+
+      if (error.statusCode == 409) {
+        if (error.code == 'OPERACION_DUPLICADA_EN_CURSO') {
+          throw OperacionTemporalException(
+            mensaje.isEmpty ? 'Operacion duplicada en curso.' : mensaje,
+          );
+        }
+
+        throw OperacionConflictoException(
+          mensaje.isEmpty ? 'Conflicto al sincronizar.' : mensaje,
+        );
+      }
+    }
+
     final mensaje = error.toString().replaceFirst('Exception: ', '').trim();
 
     if (_esConflicto(mensaje)) {

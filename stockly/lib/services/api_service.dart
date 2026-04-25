@@ -5,6 +5,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../utils/constants.dart';
 
+class ApiRequestException implements Exception {
+  const ApiRequestException({
+    required this.statusCode,
+    required this.message,
+    this.code,
+    this.error,
+  });
+
+  final int statusCode;
+  final String message;
+  final String? code;
+  final String? error;
+
+  @override
+  String toString() => message;
+}
+
 // Cliente HTTP base para comunicarse con la API REST de Stockly.
 // Gestiona cabeceras, parseo de JSON y manejo de errores en un único sitio.
 class ApiService {
@@ -77,15 +94,29 @@ class ApiService {
       }
       return json;
     } else {
-      // Extraer el mensaje de error del backend si viene en JSON
+      // Extraer el error del backend si viene en JSON.
       String mensaje = 'Error ${response.statusCode}';
+      String? code;
+      String? error;
       try {
-        final error = jsonDecode(response.body);
-        mensaje = (error['message'] ?? error['error'] ?? response.body).toString();
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body is Map) {
+          final errorMap = body.cast<String, dynamic>();
+          mensaje =
+              (errorMap['message'] ?? errorMap['error'] ?? response.body)
+                  .toString();
+          code = errorMap['code']?.toString();
+          error = errorMap['error']?.toString();
+        }
       } catch (_) {
         // cuerpo no es JSON, usamos el mensaje por defecto
       }
-      throw Exception(mensaje);
+      throw ApiRequestException(
+        statusCode: response.statusCode,
+        message: mensaje,
+        code: code,
+        error: error,
+      );
     }
   }
 }

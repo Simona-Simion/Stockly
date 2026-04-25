@@ -26,7 +26,11 @@ class VentaProductoHandler extends BaseOperacionHandler {
     }
 
     try {
-      await _ventaService.registrarProductoHttp(productoId, cantidad);
+      await _ventaService.registrarProductoHttp(
+        productoId,
+        cantidad,
+        uuidOperacion: operacion.uuidOperacion,
+      );
     } on OperacionSyncException {
       rethrow;
     } catch (error) {

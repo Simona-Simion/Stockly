@@ -32,7 +32,12 @@ class MermaProductoHandler extends BaseOperacionHandler {
     }
 
     try {
-      await _mermaService.registrarHttp(productoId, cantidad, motivo);
+      await _mermaService.registrarHttp(
+        productoId,
+        cantidad,
+        motivo,
+        uuidOperacion: operacion.uuidOperacion,
+      );
     } on OperacionSyncException {
       rethrow;
     } catch (error) {

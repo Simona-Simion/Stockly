@@ -25,7 +25,11 @@ class VentaRecetaHandler extends BaseOperacionHandler {
     }
 
     try {
-      await _ventaService.registrarHttp(recetaId, cantidad);
+      await _ventaService.registrarHttp(
+        recetaId,
+        cantidad,
+        uuidOperacion: operacion.uuidOperacion,
+      );
     } on OperacionSyncException {
       rethrow;
     } catch (error) {

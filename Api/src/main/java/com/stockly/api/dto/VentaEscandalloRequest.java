@@ -15,4 +15,7 @@ public class VentaEscandalloRequest {
 
     // Origen de la venta: MANUAL, TPV_WEBHOOK, TPV_FICHERO. Por defecto MANUAL.
     private String origen;
+
+    // Identificador opcional para idempotencia.
+    private String uuidOperacion;
 }

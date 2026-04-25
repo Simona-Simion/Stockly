@@ -57,6 +57,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(OperacionDuplicadaEnCursoException.class)
+    public ResponseEntity<ErrorResponse> handleOperacionDuplicadaEnCursoException(
+            OperacionDuplicadaEnCursoException ex
+    ) {
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Operacion Duplicada En Curso")
+                .code("OPERACION_DUPLICADA_EN_CURSO")
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
         ErrorResponse error = ErrorResponse.builder()

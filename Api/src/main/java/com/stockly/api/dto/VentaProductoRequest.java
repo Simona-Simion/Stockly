@@ -12,4 +12,7 @@ public class VentaProductoRequest {
 
     // Número de unidades a vender
     private Integer cantidad;
+
+    // Identificador opcional para idempotencia.
+    private String uuidOperacion;
 }

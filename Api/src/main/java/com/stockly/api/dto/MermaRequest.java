@@ -15,4 +15,7 @@ public class MermaRequest {
 
     // Descripción obligatoria: rotura, caducidad, derrame, etc.
     private String motivo;
+
+    // Identificador opcional para idempotencia.
+    private String uuidOperacion;
 }

@@ -1,4 +1,5 @@
 import 'scanner/scanner_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,8 +9,14 @@ import '../providers/auth_provider.dart';
 import '../providers/producto_provider.dart';
 import '../providers/receta_provider.dart';
 import '../repositories/operacion_sync_repository.dart';
+import '../services/local_database_service.dart';
+import 'inicio/inicio_screen.dart';
+import 'productos/producto_form_screen.dart';
 import 'productos/productos_screen.dart';
+import 'pedidos/pedidos_proveedor_screen.dart';
+import 'recetas/receta_form_screen.dart';
 import 'recetas/recetas_screen.dart';
+import 'stock/entrada_stock_screen.dart';
 import 'ventas/registrar_venta_screen.dart';
 import 'mermas/registrar_merma_screen.dart';
 import 'movimientos/movimientos_screen.dart';
@@ -27,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _indiceActual = 0;
   final _movimientosKey = GlobalKey<MovimientosScreenState>();
   final OperacionSyncRepository _operacionSyncRepository =
-  OperacionSyncRepository();
+      OperacionSyncRepository();
   bool _reintentandoSincronizacion = false;
 
   @override
@@ -45,16 +52,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (esAdmin) {
       switch (indice) {
-        case 0:
+        case 1:
           context.read<ProductoProvider>().cargar();
           break;
-        case 1:
+        case 2:
           context.read<RecetaProvider>().cargar();
           break;
         default:
           break;
       }
     }
+  }
+
+  Future<void> _abrirEntradaStock() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EntradaStockScreen()),
+    );
+
+    if (mounted) {
+      context.read<ProductoProvider>().cargar();
+      context.read<AlertaProvider>().cargar();
+    }
+  }
+
+  Future<void> _abrirNuevoProducto() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProductoFormScreen()),
+    );
+
+    if (mounted) {
+      context.read<ProductoProvider>().cargar();
+      context.read<AlertaProvider>().cargar();
+    }
+  }
+
+  Future<void> _abrirNuevaReceta() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecetaFormScreen()),
+    );
+
+    if (mounted) {
+      context.read<RecetaProvider>().cargar();
+    }
+  }
+
+  Future<void> _abrirScanner() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerScreen()),
+    );
+
+    if (mounted) {
+      context.read<ProductoProvider>().cargar();
+      context.read<AlertaProvider>().cargar();
+    }
+  }
+
+  Future<void> _abrirPedidosProveedor() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PedidosProveedorScreen()),
+    );
   }
 
   Future<void> _reintentarSincronizacion() async {
@@ -81,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       messenger.showSnackBar(
-        const SnackBar(content: Text('Reintento de sincronizacion ejecutado.')),
+        const SnackBar(content: Text('Reintento de sincronización ejecutado.')),
       );
     } catch (e) {
       if (!mounted) {
@@ -90,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Error al reintentar la sincronizacion: $e'),
+          content: Text('Error al reintentar la sincronización: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -110,6 +171,96 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _mostrarAcciones() async {
+    final esAdmin = context.read<AuthProvider>().esAdmin;
+    final localDatabaseSoportada = LocalDatabaseService.instance.isSupported;
+    final mostrarScanner = localDatabaseSoportada && !kIsWeb;
+    final mostrarReintentarSync = localDatabaseSoportada;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Acciones',
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  if (esAdmin)
+                    _AccionItem(
+                      icon: Icons.add,
+                      titulo: 'Nuevo producto',
+                      onTap: () =>
+                          _cerrarYEjecutar(sheetContext, _abrirNuevoProducto),
+                    ),
+                  if (esAdmin)
+                    _AccionItem(
+                      icon: Icons.menu_book_outlined,
+                      titulo: 'Nueva receta',
+                      onTap: () =>
+                          _cerrarYEjecutar(sheetContext, _abrirNuevaReceta),
+                    ),
+                  if (esAdmin)
+                    _AccionItem(
+                      icon: Icons.add_shopping_cart,
+                      titulo: 'Entrada de stock',
+                      onTap: () =>
+                          _cerrarYEjecutar(sheetContext, _abrirEntradaStock),
+                    ),
+                  if (mostrarScanner)
+                    _AccionItem(
+                      icon: Icons.qr_code_scanner,
+                      titulo: 'Escanear producto',
+                      onTap: () =>
+                          _cerrarYEjecutar(sheetContext, _abrirScanner),
+                    ),
+                  _AccionItem(
+                    icon: Icons.receipt_long_outlined,
+                    titulo: 'Pedidos proveedor',
+                    onTap: () =>
+                        _cerrarYEjecutar(sheetContext, _abrirPedidosProveedor),
+                  ),
+                  if (mostrarReintentarSync)
+                    _AccionItem(
+                      icon: Icons.sync,
+                      titulo: _reintentandoSincronizacion
+                          ? 'Reintentando sincronizacion...'
+                          : 'Reintentar sincronizacion',
+                      enabled: !_reintentandoSincronizacion,
+                      onTap: () => _cerrarYEjecutar(
+                        sheetContext,
+                        _reintentarSincronizacion,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _cerrarYEjecutar(
+    BuildContext sheetContext,
+    Future<void> Function() accion,
+  ) {
+    Navigator.of(sheetContext).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        accion();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -118,15 +269,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final nombreUsuario = auth.usuario?.nombre ?? auth.usuario?.email ?? '';
 
     final pantallas = [
+      InicioScreen(nombreUsuario: nombreUsuario),
       if (esAdmin) const ProductosScreen(),
       if (esAdmin) const RecetasScreen(),
       const RegistrarVentaScreen(),
       const RegistrarMermaScreen(),
       MovimientosScreen(key: _movimientosKey),
-      const ScannerScreen(),
     ];
 
     final destinos = [
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
+        label: 'Inicio',
+      ),
       if (esAdmin)
         const NavigationDestination(
           icon: Icon(Icons.inventory_2_outlined),
@@ -153,11 +309,6 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icon(Icons.history_outlined),
         selectedIcon: Icon(Icons.history),
         label: 'Historial',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.qr_code_scanner_outlined),
-        selectedIcon: Icon(Icons.qr_code_scanner),
-        label: 'Escanear',
       ),
     ];
 
@@ -229,33 +380,18 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: SizedBox(
-              width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Align(
+              alignment: Alignment.centerRight,
               child: FilledButton.icon(
-                onPressed: _reintentandoSincronizacion
-                    ? null
-                    : _reintentarSincronizacion,
-                icon: _reintentandoSincronizacion
-                    ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : const Icon(Icons.sync),
-                label: Text(
-                  _reintentandoSincronizacion
-                      ? 'Reintentando sincronizacion...'
-                      : 'Reintentar sincronizacion',
-                ),
+                onPressed: _mostrarAcciones,
+                icon: const Icon(Icons.apps),
+                label: const Text('Acciones'),
               ),
             ),
           ),
           Expanded(
-            child: IndexedStack(
-              index: indiceSeguro,
-              children: pantallas,
-            ),
+            child: IndexedStack(index: indiceSeguro, children: pantallas),
           ),
         ],
       ),
@@ -264,6 +400,31 @@ class _HomeScreenState extends State<HomeScreen> {
         onDestinationSelected: _onTabChanged,
         destinations: destinos,
       ),
+    );
+  }
+}
+
+class _AccionItem extends StatelessWidget {
+  const _AccionItem({
+    required this.icon,
+    required this.titulo,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String titulo;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      enabled: enabled,
+      leading: Icon(icon),
+      title: Text(titulo),
+      onTap: enabled ? onTap : null,
+      contentPadding: EdgeInsets.zero,
     );
   }
 }
@@ -294,10 +455,7 @@ class _AlertasStockSheet extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Alertas de stock',
-                      style: theme.textTheme.titleLarge,
-                    ),
+                    Text('Alertas de stock', style: theme.textTheme.titleLarge),
                     const Spacer(),
                     IconButton(
                       onPressed: provider.cargando
@@ -306,10 +464,10 @@ class _AlertasStockSheet extends StatelessWidget {
                       tooltip: 'Recargar alertas',
                       icon: provider.cargando
                           ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.refresh),
                     ),
                   ],
@@ -426,10 +584,7 @@ class _AlertaStockItem extends StatelessWidget {
                 ),
                 child: Text(
                   estado,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -444,10 +599,7 @@ class _AlertaStockItem extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Reposicion necesaria',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),

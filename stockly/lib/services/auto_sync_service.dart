@@ -24,7 +24,10 @@ class AutoSyncService {
   final ApiService _apiService;
   final CatalogoLocalSyncService _catalogoLocalSyncService;
 
+  static const Duration _periodicSyncInterval = Duration(minutes: 2);
+
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  Timer? _periodicSyncTimer;
   bool _isSyncing = false;
   bool _wasOffline = false;
 
@@ -37,6 +40,10 @@ class AutoSyncService {
     if (!localDatabaseService.isSupported) {
       return;
     }
+
+    _periodicSyncTimer ??= Timer.periodic(_periodicSyncInterval, (_) {
+      unawaited(sincronizarSiCorresponde());
+    });
 
     if (_connectivitySubscription != null) {
       return;
@@ -99,7 +106,7 @@ class AutoSyncService {
 
     try {
       print('AUTOSYNC iniciando sincronizacion');
-      await _operacionSyncRepository.sincronizarPendientes();
+      await _operacionSyncRepository.sincronizarPendientesYErroresTecnicos();
       await _catalogoLocalSyncService.refrescarDesdeBackend();
       print('AUTOSYNC sincronizacion completada');
     } catch (e, st) {
@@ -114,5 +121,7 @@ class AutoSyncService {
   Future<void> dispose() async {
     await _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
+    _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = null;
   }
 }

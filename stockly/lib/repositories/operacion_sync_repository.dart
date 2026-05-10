@@ -3,6 +3,7 @@ import '../services/local_database_service.dart';
 import '../services/merma_service.dart';
 import '../services/operacion_local_service.dart';
 import '../services/venta_service.dart';
+import 'operacion_handlers/entrada_producto_handler.dart';
 import 'operacion_handlers/merma_producto_handler.dart';
 import 'operacion_handlers/operacion_handler.dart';
 import 'operacion_handlers/operacion_sync_exception.dart';
@@ -23,6 +24,7 @@ class OperacionSyncRepository {
                VentaProductoHandler(ventaService: ventaService),
                MermaProductoHandler(mermaService: mermaService),
                VentaRecetaHandler(ventaService: ventaService),
+               EntradaProductoHandler(),
              ],
        );
 
@@ -31,6 +33,16 @@ class OperacionSyncRepository {
   bool _sincronizacionEnCurso = false;
 
   Future<void> sincronizarPendientes() async {
+    await _sincronizarPendientes(resetearErroresTecnicos: false);
+  }
+
+  Future<void> sincronizarPendientesYErroresTecnicos() async {
+    await _sincronizarPendientes(resetearErroresTecnicos: true);
+  }
+
+  Future<void> _sincronizarPendientes({
+    required bool resetearErroresTecnicos,
+  }) async {
     final localDatabaseService = LocalDatabaseService.instance;
 
     if (!localDatabaseService.isSupported || _sincronizacionEnCurso) {
@@ -45,6 +57,17 @@ class OperacionSyncRepository {
     _sincronizacionEnCurso = true;
 
     try {
+      if (resetearErroresTecnicos) {
+        final operacionesConError = await _operacionLocalService
+            .listarPorEstado(OperacionPendiente.estadoError);
+
+        for (final operacion in operacionesConError) {
+          await _operacionLocalService.marcarComoPendiente(
+            operacion.uuidOperacion,
+          );
+        }
+      }
+
       await _operacionLocalService.resetearOperacionesEnviandoAPendiente();
       final operaciones = await _operacionLocalService
           .listarPendientesOrdenadas();
@@ -124,7 +147,7 @@ class OperacionSyncRepository {
     String mensaje,
   ) async {
     final motivo = _construirMotivoError(mensaje, operacion.reintentos + 1);
-    await _operacionLocalService.incrementarReintentoYMarcarPendiente(
+    await _operacionLocalService.incrementarReintentoYMarcarError(
       operacion.uuidOperacion,
       motivo: motivo,
     );

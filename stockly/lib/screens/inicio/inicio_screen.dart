@@ -6,9 +6,14 @@ import '../../services/local_database_service.dart';
 import '../../services/operacion_local_service.dart';
 
 class InicioScreen extends StatefulWidget {
-  const InicioScreen({super.key, required this.nombreUsuario});
+  const InicioScreen({
+    super.key,
+    required this.nombreUsuario,
+    required this.refreshToken,
+  });
 
   final String nombreUsuario;
+  final int refreshToken;
 
   @override
   State<InicioScreen> createState() => _InicioScreenState();
@@ -26,6 +31,14 @@ class _InicioScreenState extends State<InicioScreen> {
     _cargarOperacionesPendientes();
   }
 
+  @override
+  void didUpdateWidget(covariant InicioScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _cargarOperacionesPendientes();
+    }
+  }
+
   Future<void> _cargarOperacionesPendientes() async {
     if (!LocalDatabaseService.instance.isSupported) {
       if (mounted) {
@@ -38,12 +51,12 @@ class _InicioScreenState extends State<InicioScreen> {
     }
 
     try {
-      final operaciones = await _operacionLocalService
-          .listarPendientesOrdenadas();
+      final total = await _operacionLocalService
+          .contarPendientesOSincronizacion();
 
       if (mounted) {
         setState(() {
-          _operacionesPendientes = operaciones.length;
+          _operacionesPendientes = total;
           _operacionesDisponibles = true;
         });
       }

@@ -77,6 +77,20 @@ class OperacionLocalService {
     return rows.map(OperacionPendiente.fromMap).toList();
   }
 
+  Future<int> contarPendientesOSincronizacion() async {
+    final db = await _database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS total
+      FROM ${LocalDatabaseService.tablaOperacionesPendientes}
+      WHERE estado IN (?, ?)
+      ''',
+      [OperacionPendiente.estadoPendiente, OperacionPendiente.estadoError],
+    );
+
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
   Future<OperacionPendiente?> obtenerPorUuid(String uuidOperacion) async {
     final db = await _database;
     final rows = await db.query(
@@ -177,6 +191,24 @@ class OperacionLocalService {
       WHERE uuid_operacion = ?
       ''',
       [OperacionPendiente.estadoPendiente, motivo, uuidOperacion],
+    );
+  }
+
+  Future<void> incrementarReintentoYMarcarError(
+    String uuidOperacion, {
+    String? motivo,
+  }) async {
+    final db = await _database;
+    await db.rawUpdate(
+      '''
+      UPDATE ${LocalDatabaseService.tablaOperacionesPendientes}
+      SET
+        reintentos = COALESCE(reintentos, 0) + 1,
+        estado = ?,
+        motivo_conflicto = ?
+      WHERE uuid_operacion = ?
+      ''',
+      [OperacionPendiente.estadoError, motivo, uuidOperacion],
     );
   }
 

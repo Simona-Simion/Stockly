@@ -32,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _indiceActual = 0;
+  int _inicioRefreshToken = 0;
   final _movimientosKey = GlobalKey<MovimientosScreenState>();
   final OperacionSyncRepository _operacionSyncRepository =
       OperacionSyncRepository();
@@ -46,7 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onTabChanged(int indice) {
-    setState(() => _indiceActual = indice);
+    setState(() {
+      _indiceActual = indice;
+      if (indice == 0) {
+        _inicioRefreshToken++;
+      }
+    });
 
     final esAdmin = context.read<AuthProvider>().esAdmin;
 
@@ -269,7 +275,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final nombreUsuario = auth.usuario?.nombre ?? auth.usuario?.email ?? '';
 
     final pantallas = [
-      InicioScreen(nombreUsuario: nombreUsuario),
+      InicioScreen(
+        nombreUsuario: nombreUsuario,
+        refreshToken: _inicioRefreshToken,
+      ),
       if (esAdmin) const ProductosScreen(),
       if (esAdmin) const RecetasScreen(),
       const RegistrarVentaScreen(),

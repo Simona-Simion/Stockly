@@ -114,6 +114,27 @@ class ProductoLocalService {
     return obtenerProductoPorIdEnTransaccion(db, id);
   }
 
+  Future<Producto?> obtenerProductoPorCodigoBarras(String codigo) async {
+    final codigoNormalizado = codigo.trim();
+    if (codigoNormalizado.isEmpty) {
+      return null;
+    }
+
+    final db = await _database;
+    final rows = await db.query(
+      LocalDatabaseService.tablaProductos,
+      where: 'codigo_barras = ?',
+      whereArgs: [codigoNormalizado],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return _fromMap(rows.first);
+  }
+
   Future<void> actualizarStock(String productoId, double nuevoStock) async {
     final db = await _database;
     await actualizarStockEnTransaccion(db, productoId, nuevoStock);
@@ -174,11 +195,42 @@ class ProductoLocalService {
     return true;
   }
 
+  Future<bool> sumarStockEnTransaccion(
+    DatabaseExecutor executor,
+    String productoId,
+    double cantidad,
+  ) async {
+    if (cantidad <= 0) {
+      return false;
+    }
+
+    final producto = await obtenerProductoPorIdEnTransaccion(
+      executor,
+      productoId,
+    );
+
+    if (producto == null) {
+      return false;
+    }
+
+    final nuevoStock = producto.stockActual + cantidad;
+    await actualizarStockEnTransaccion(executor, productoId, nuevoStock);
+    return true;
+  }
+
   Future<bool> descontarStock(String productoId, double cantidad) async {
     final db = await _database;
 
     return db.transaction((txn) async {
       return descontarStockEnTransaccion(txn, productoId, cantidad);
+    });
+  }
+
+  Future<bool> sumarStock(String productoId, double cantidad) async {
+    final db = await _database;
+
+    return db.transaction((txn) async {
+      return sumarStockEnTransaccion(txn, productoId, cantidad);
     });
   }
 

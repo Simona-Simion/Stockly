@@ -5,6 +5,7 @@ class OperacionPendiente {
   static const String estadoConflicto = 'conflicto';
   static const String estadoError = 'error';
   static const String tipoVentaProducto = 'venta_producto';
+  static const String tipoEntradaProducto = 'entrada_producto';
   static const String tipoMermaProducto = 'merma_producto';
   static const String tipoMermaLegacy = 'merma';
   static const String tipoVentaReceta = 'venta_receta';

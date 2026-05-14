@@ -23,7 +23,7 @@ class VentaService {
     String? uuidOperacion,
   }) async {
     if (_repository != null) {
-      await _repository!.registrarVentaReceta(recetaId, cantidad);
+      await _repository.registrarVentaReceta(recetaId, cantidad);
       return;
     }
 
@@ -55,7 +55,7 @@ class VentaService {
     String? uuidOperacion,
   }) async {
     if (_repository != null) {
-      await _repository!.registrarVentaProducto(productoId, cantidad);
+      await _repository.registrarVentaProducto(productoId, cantidad);
       return;
     }
 

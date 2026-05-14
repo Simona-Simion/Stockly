@@ -78,14 +78,6 @@ class _RecetasScreenState extends State<RecetasScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const RecetaFormScreen()),
-        ).then((_) => context.read<RecetaProvider>().cargar()),
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva receta'),
-      ),
     );
   }
 }

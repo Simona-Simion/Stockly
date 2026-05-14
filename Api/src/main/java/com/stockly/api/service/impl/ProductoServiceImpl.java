@@ -1,6 +1,7 @@
 package com.stockly.api.service.impl;
 
 import com.stockly.api.dto.ProductoRequest;
+import com.stockly.api.exception.ProductoDuplicadoException;
 import com.stockly.api.exception.ResourceNotFoundException;
 import com.stockly.api.model.Categoria;
 import com.stockly.api.model.Producto;
@@ -41,11 +42,16 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public Producto save(Producto producto) {
-        // Validar que no exista otro producto con el mismo código de barras
+        String nombreNormalizado = normalizarNombre(producto.getNombre());
+        validarNombreDuplicado(nombreNormalizado, null);
+
+        producto.setNombre(nombreNormalizado);
+
+        // Validar que no exista otro producto con el mismo codigo de barras
         if (producto.getCodigoBarras() != null && !producto.getCodigoBarras().isEmpty()) {
             repository.findByCodigoBarras(producto.getCodigoBarras())
                     .ifPresent(p -> {
-                        throw new RuntimeException("Ya existe un producto con el código de barras: " + producto.getCodigoBarras());
+                        throw new ProductoDuplicadoException("Ya existe un producto con el codigo de barras: " + producto.getCodigoBarras());
                     });
         }
         return repository.save(producto);
@@ -91,18 +97,21 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     public Producto update(UUID id, Producto producto) {
         Producto existente = findById(id);
+        String nombreNormalizado = normalizarNombre(producto.getNombre());
 
-        // Validar código de barras si se está actualizando
+        validarNombreDuplicado(nombreNormalizado, id);
+
+        // Validar codigo de barras si se esta actualizando
         if (producto.getCodigoBarras() != null && !producto.getCodigoBarras().isEmpty()) {
             repository.findByCodigoBarras(producto.getCodigoBarras())
                     .ifPresent(p -> {
                         if (!p.getId().equals(id)) {
-                            throw new RuntimeException("Ya existe otro producto con el código de barras: " + producto.getCodigoBarras());
+                            throw new ProductoDuplicadoException("Ya existe otro producto con el codigo de barras: " + producto.getCodigoBarras());
                         }
                     });
         }
 
-        existente.setNombre(producto.getNombre());
+        existente.setNombre(nombreNormalizado);
         existente.setCategoria(producto.getCategoria());
         existente.setCodigoBarras(producto.getCodigoBarras());
         existente.setStockActual(producto.getStockActual());
@@ -120,7 +129,7 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     public void delete(UUID id) {
         Producto producto = findById(id);
-        // Borrado lógico: nunca se elimina físicamente de la base de datos
+        // Borrado logico: nunca se elimina fisicamente de la base de datos
         producto.setActivo(false);
         repository.save(producto);
     }
@@ -129,6 +138,27 @@ public class ProductoServiceImpl implements ProductoService {
     @Transactional(readOnly = true)
     public Producto findByCodigoBarras(String codigo) {
         return repository.findByCodigoBarras(codigo)
-                .orElseThrow(() -> new ResourceNotFoundException("Producto", "código de barras", codigo));
+                .orElseThrow(() -> new ResourceNotFoundException("Producto", "codigo de barras", codigo));
+    }
+
+    private String normalizarNombre(String nombre) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre del producto es obligatorio");
+        }
+
+        return nombre.trim();
+    }
+
+    private void validarNombreDuplicado(String nombreNormalizado, UUID idPermitido) {
+        List<Producto> productosConMismoNombre = repository.findActivosByNombreNormalizado(nombreNormalizado);
+
+        boolean existeDuplicado = productosConMismoNombre.stream()
+                .anyMatch(p -> idPermitido == null || !p.getId().equals(idPermitido));
+
+        if (existeDuplicado) {
+            throw new ProductoDuplicadoException(
+                    "Ya existe un producto activo con el nombre: " + nombreNormalizado
+            );
+        }
     }
 }

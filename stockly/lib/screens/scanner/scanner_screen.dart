@@ -1,12 +1,16 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../models/producto.dart';
+import '../../services/api_service.dart';
+import '../../services/local_database_service.dart';
+import '../../services/producto_local_service.dart';
 import '../../services/producto_service.dart';
-import '../productos/producto_detalle_screen.dart';
+import '../productos/producto_form_screen.dart';
+import '../stock/entrada_stock_screen.dart';
 
 // Pantalla de escáner de código de barras.
-// Abre la cámara, detecta el código y navega al detalle del producto.
+// Abre la cámara, detecta el código y navega al flujo correspondiente.
 // Funciona en móvil nativo y en PWA (navegador con HTTPS o localhost).
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -22,6 +26,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
   final ProductoService _productoService = ProductoService();
+  final ProductoLocalService _productoLocalService = ProductoLocalService();
 
   bool _procesando = false;
   String? _ultimoCodigoDetectado;
@@ -62,7 +67,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       setState(() => _procesando = true);
     }
 
-    await _controller.stop();
+    await _detenerScannerSeguro();
 
     try {
       final Producto producto = await _productoService.buscarPorCodigo(codigo);
@@ -71,26 +76,97 @@ class _ScannerScreenState extends State<ScannerScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => ProductoDetalleScreen(producto: producto),
+          builder: (_) => EntradaStockScreen(productoInicial: producto),
         ),
+      );
+    } on ApiRequestException catch (e) {
+      if (!mounted) return;
+
+      if (e.statusCode == 404) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductoFormScreen(codigoBarrasInicial: codigo),
+          ),
+        );
+        return;
+      }
+
+      await _mostrarErrorYReanudar(
+        'No se pudo buscar el producto. Inténtalo de nuevo.',
       );
     } catch (_) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Producto no encontrado para el código: $codigo'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {},
-          ),
-        ),
-      );
+      await _buscarLocalOReanudar(codigo);
+    }
+  }
 
+  Future<void> _buscarLocalOReanudar(String codigo) async {
+    if (!LocalDatabaseService.instance.isSupported) {
+      await _mostrarErrorYReanudar(
+        'No se pudo buscar el producto sin conexión.',
+      );
+      return;
+    }
+
+    try {
+      final producto = await _productoLocalService
+          .obtenerProductoPorCodigoBarras(codigo);
+
+      if (!mounted) return;
+
+      if (producto != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EntradaStockScreen(productoInicial: producto),
+          ),
+        );
+        return;
+      }
+
+      await _mostrarErrorYReanudar(
+        'Producto no encontrado en el catálogo local.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      await _mostrarErrorYReanudar('No se pudo buscar el producto en local.');
+    }
+  }
+
+  Future<void> _detenerScannerSeguro() async {
+    try {
+      await _controller.stop();
+    } catch (_) {
+      // Puede estar ya detenido o cerrándose.
+    }
+  }
+
+  Future<void> _mostrarErrorYReanudar(String mensaje) async {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+
+    if (mounted) {
       setState(() => _procesando = false);
-      await _controller.start();
+    }
+
+    if (mounted) {
+      try {
+        await _controller.start();
+      } catch (_) {}
     }
   }
 
@@ -105,10 +181,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
+          MobileScanner(controller: _controller, onDetect: _onDetect),
           _ScanOverlay(),
           Align(
             alignment: Alignment.bottomCenter,

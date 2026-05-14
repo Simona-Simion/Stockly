@@ -3,14 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../models/producto.dart';
 import '../../providers/producto_provider.dart';
-import '../scanner/scanner_screen.dart';
 import 'producto_detalle_screen.dart';
 import 'producto_form_screen.dart';
 
 // Elimina decimales innecesarios: 299.00 → "299", 0.070 → "0.07"
 String _formatCantidad(double v) {
   if (v == v.roundToDouble()) return v.toInt().toString();
-  return v.toStringAsFixed(3)
+  return v
+      .toStringAsFixed(3)
       .replaceAll(RegExp(r'0+$'), '')
       .replaceAll(RegExp(r'\.$'), '');
 }
@@ -49,14 +49,6 @@ class _ProductosScreenState extends State<ProductosScreen> {
         title: const Text('Productos'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Escanear código de barras',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ScannerScreen()),
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Recargar',
             onPressed: () => context.read<ProductoProvider>().cargar(),
@@ -87,18 +79,14 @@ class _ProductosScreenState extends State<ProductosScreen> {
                       )
                     : null,
               ),
-              onChanged: (valor) => setState(() => _filtro = valor.toLowerCase()),
+              onChanged: (valor) =>
+                  setState(() => _filtro = valor.toLowerCase()),
             ),
           ),
 
           // Lista de productos
           Expanded(child: _buildLista()),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _abrirFormulario(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo producto'),
       ),
     );
   }
@@ -121,30 +109,78 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
         if (lista.isEmpty) {
           return const Center(
-            child: Text('No hay productos', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'No hay productos',
+              style: TextStyle(color: Colors.grey),
+            ),
           );
         }
+
+        final grupos = _agruparPorCategoria(lista);
+        final categorias = grupos.keys.toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
         return RefreshIndicator(
           onRefresh: () => context.read<ProductoProvider>().cargar(),
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: lista.length,
-            itemBuilder: (context, i) => _ProductoCard(
-              producto: lista[i],
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProductoDetalleScreen(producto: lista[i]),
-                ),
-              ),
-              onEditar: () => _abrirFormulario(context, producto: lista[i]),
-              onEliminar: () => _confirmarEliminar(context, lista[i]),
-            ),
+            itemCount: categorias.length,
+            itemBuilder: (context, i) {
+              final categoria = categorias[i];
+              final productos =[...grupos[categoria]!]
+                ..sort(
+                  (a, b) =>
+                      a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+                );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CategoriaHeader(
+                    nombre: categoria,
+                    cantidad: productos.length,
+                  ),
+                  ...productos.map(
+                    (producto) => _ProductoCard(
+                      producto: producto,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ProductoDetalleScreen(producto: producto),
+                        ),
+                      ),
+                      onEditar: () =>
+                          _abrirFormulario(context, producto: producto),
+                      onEliminar: () => _confirmarEliminar(context, producto),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
     );
+  }
+
+  Map<String, List<Producto>> _agruparPorCategoria(List<Producto> productos) {
+    final grupos = <String, List<Producto>>{};
+
+    for (final producto in productos) {
+      final categoria = _categoriaProducto(producto);
+      grupos.putIfAbsent(categoria, () => []).add(producto);
+    }
+
+    return grupos;
+  }
+
+  String _categoriaProducto(Producto producto) {
+    final categoria = producto.categoriaNombre?.trim();
+    if (categoria == null || categoria.isEmpty) {
+      return 'Sin categoría';
+    }
+    return categoria;
   }
 
   Widget _buildError(String mensaje) {
@@ -168,9 +204,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
   void _abrirFormulario(BuildContext context, {Producto? producto}) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProductoFormScreen(producto: producto),
-      ),
+      MaterialPageRoute(builder: (_) => ProductoFormScreen(producto: producto)),
     );
   }
 
@@ -179,7 +213,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Desactivar producto'),
-        content: Text('¿Desactivar "${producto.nombre}"? No aparecerá en el inventario.'),
+        content: Text(
+          '¿Desactivar "${producto.nombre}"? No aparecerá en el inventario.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -199,12 +235,57 @@ class _ProductosScreenState extends State<ProductosScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
             },
             child: const Text('Desactivar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoriaHeader extends StatelessWidget {
+  final String nombre;
+  final int cantidad;
+
+  const _CategoriaHeader({required this.nombre, required this.cantidad});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              nombre,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              cantidad.toString(),
+              style: theme.textTheme.labelMedium,
+            ),
           ),
         ],
       ),
@@ -234,20 +315,20 @@ class _ProductoCard extends StatelessWidget {
     final colorBorde = sinStock
         ? Colors.red.shade400
         : bajoMinimo
-            ? Colors.orange.shade300
-            : Colors.transparent;
+        ? Colors.orange.shade300
+        : Colors.transparent;
 
     final colorAvatar = sinStock
         ? Colors.red
         : bajoMinimo
-            ? Colors.orange
-            : Theme.of(context).colorScheme.primary;
+        ? Colors.orange
+        : Theme.of(context).colorScheme.primary;
 
     final bgAvatar = sinStock
         ? Colors.red.shade100
         : bajoMinimo
-            ? Colors.orange.shade100
-            : Theme.of(context).colorScheme.primaryContainer;
+        ? Colors.orange.shade100
+        : Theme.of(context).colorScheme.primaryContainer;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -279,10 +360,11 @@ class _ProductoCard extends StatelessWidget {
                     color: sinStock
                         ? Colors.red
                         : bajoMinimo
-                            ? Colors.orange
-                            : null,
-                    fontWeight:
-                        (sinStock || bajoMinimo) ? FontWeight.bold : null,
+                        ? Colors.orange
+                        : null,
+                    fontWeight: (sinStock || bajoMinimo)
+                        ? FontWeight.bold
+                        : null,
                   ),
                 ),
                 if (sinStock) ...[
@@ -294,17 +376,26 @@ class _ProductoCard extends StatelessWidget {
                   ),
                 ] else if (bajoMinimo) ...[
                   const SizedBox(width: 6),
-                  Icon(Icons.warning_amber, size: 14, color: Colors.orange.shade700),
+                  Icon(
+                    Icons.warning_amber,
+                    size: 14,
+                    color: Colors.orange.shade700,
+                  ),
                   Text(
                     ' Bajo mínimo',
-                    style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ],
             ),
             if (producto.categoriaNombre != null)
-              Text(producto.categoriaNombre!,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                producto.categoriaNombre!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
           ],
         ),
         trailing: PopupMenuButton<String>(

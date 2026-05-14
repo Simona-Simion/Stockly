@@ -10,8 +10,13 @@ import '../../utils/constants.dart';
 // Si se recibe un producto existente, los campos se precargan con sus datos.
 class ProductoFormScreen extends StatefulWidget {
   final Producto? producto;
+  final String? codigoBarrasInicial;
 
-  const ProductoFormScreen({super.key, this.producto});
+  const ProductoFormScreen({
+    super.key,
+    this.producto,
+    this.codigoBarrasInicial,
+  });
 
   @override
   State<ProductoFormScreen> createState() => _ProductoFormScreenState();
@@ -69,6 +74,8 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
       _stockActual.text = p.stockActual.toString();
       _stockMinimo.text = p.stockMinimo.toString();
       _precioUnidad.text = p.precioUnidad?.toString() ?? '';
+    } else if (widget.codigoBarrasInicial != null) {
+      _codigoBarras.text = widget.codigoBarrasInicial!.trim();
     }
   }
 
@@ -178,10 +185,12 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
                 border: OutlineInputBorder(),
               ),
               items: _categorias
-                  .map((c) => DropdownMenuItem<String>(
-                        value: c['id'] as String,
-                        child: Text(c['nombre'] as String),
-                      ))
+                  .map(
+                    (c) => DropdownMenuItem<String>(
+                      value: c['id'] as String,
+                      child: Text(c['nombre'] as String),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _categoriaId = v),
               validator: (v) => v == null ? 'Selecciona una categoría' : null,
@@ -197,20 +206,27 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
                 border: OutlineInputBorder(),
               ),
               items: _unidades
-                  .map((u) => DropdownMenuItem<String>(
-                        value: u['id'] as String,
-                        child: Text(u['nombre'] as String),
-                      ))
+                  .map(
+                    (u) => DropdownMenuItem<String>(
+                      value: u['id'] as String,
+                      child: Text(u['nombre'] as String),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _unidadId = v),
-              validator: (v) => v == null ? 'Selecciona una unidad de medida' : null,
+              validator: (v) =>
+                  v == null ? 'Selecciona una unidad de medida' : null,
             ),
 
             // Ayuda dinámica según la unidad seleccionada
-            if (_unidadNombre != null && _ayudaStock(_unidadNombre!) != null) ...[
+            if (_unidadNombre != null &&
+                _ayudaStock(_unidadNombre!) != null) ...[
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
@@ -231,7 +247,9 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.save),
               label: Text(_esEdicion ? 'Guardar cambios' : 'Crear producto'),
@@ -268,7 +286,8 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
 
     final body = {
       'nombre': _nombre.text.trim(),
-      if (_codigoBarras.text.isNotEmpty) 'codigoBarras': _codigoBarras.text.trim(),
+      if (_codigoBarras.text.isNotEmpty)
+        'codigoBarras': _codigoBarras.text.trim(),
       'stockActual': double.tryParse(_stockActual.text) ?? 0,
       'stockMinimo': double.tryParse(_stockMinimo.text) ?? 0,
       if (_precioUnidad.text.isNotEmpty)
@@ -288,7 +307,9 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_esEdicion ? 'Producto actualizado' : 'Producto creado'),
+            content: Text(
+              _esEdicion ? 'Producto actualizado' : 'Producto creado',
+            ),
           ),
         );
       }
@@ -296,7 +317,9 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}'),
+            content: Text(
+              'Error: ${e.toString().replaceFirst("Exception: ", "")}',
+            ),
             backgroundColor: Colors.red,
           ),
         );

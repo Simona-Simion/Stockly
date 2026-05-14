@@ -1,13 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-//import 'package:stockly/services/local_database_service.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
 import 'providers/alerta_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/pedido_proveedor_provider.dart';
 import 'providers/producto_provider.dart';
+import 'providers/proveedor_provider.dart';
 import 'providers/receta_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -19,24 +21,21 @@ import 'utils/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
-  );
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await FcmService.solicitarPermiso();
   await LocalDatabaseService.instance.initialize();
-  //await LocalDatabaseService.instance.resetearOperacionesEnviando();
+
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AlertaProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PedidoProveedorProvider()),
         ChangeNotifierProvider(create: (_) => ProductoProvider()),
+        ChangeNotifierProvider(create: (_) => ProveedorProvider()),
         ChangeNotifierProvider(create: (_) => RecetaProvider()),
       ],
       child: const StocklyApp(),
@@ -53,14 +52,9 @@ class StocklyApp extends StatelessWidget {
       title: 'Stockly',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1565C0),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1565C0)),
         useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
+        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
       ),
       // Redirige a login o a la app segun el estado de autenticacion
       home: const _AppBootstrap(child: _AuthGate()),
@@ -113,11 +107,7 @@ class _AuthGate extends StatelessWidget {
 
     if (authProvider.isAuthenticated && authProvider.perfilCargando) {
       print('AUTH_GATE mostrando carga');
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (authProvider.isAuthenticated && authProvider.usuario != null) {

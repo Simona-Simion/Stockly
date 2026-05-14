@@ -24,7 +24,7 @@ class MermaService {
     String? uuidOperacion,
   }) async {
     if (_repository != null) {
-      await _repository!.registrarMerma(productoId, cantidad, motivo);
+      await _repository.registrarMerma(productoId, cantidad, motivo);
       return;
     }
 

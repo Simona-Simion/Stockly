@@ -20,6 +20,7 @@ SELECT
     CASE
         WHEN op.tipo_operacion = 'venta_producto' THEN producto_venta.nombre
         WHEN op.tipo_operacion = 'merma_producto' THEN producto_merma.nombre
+        WHEN op.tipo_operacion = 'entrada_producto' THEN producto_entrada.nombre
         ELSE NULL
     END AS producto_nombre,
     CASE
@@ -29,6 +30,7 @@ SELECT
     CASE
         WHEN op.tipo_operacion = 'venta_producto' THEN producto_venta.nombre
         WHEN op.tipo_operacion = 'merma_producto' THEN producto_merma.nombre
+        WHEN op.tipo_operacion = 'entrada_producto' THEN producto_entrada.nombre
         WHEN op.tipo_operacion = 'venta_receta' THEN receta_venta.nombre
         ELSE NULL
     END AS nombre_referencia
@@ -47,4 +49,10 @@ LEFT JOIN movimientos_stock movimiento_merma
     AND movimiento_merma.id = op.referencia_uuid
 LEFT JOIN productos producto_merma
     ON op.tipo_operacion = 'merma_producto'
-    AND producto_merma.id = movimiento_merma.producto_id;
+    AND producto_merma.id = movimiento_merma.producto_id
+LEFT JOIN movimientos_stock movimiento_entrada
+    ON op.tipo_operacion = 'entrada_producto'
+    AND movimiento_entrada.id = op.referencia_uuid
+LEFT JOIN productos producto_entrada
+    ON op.tipo_operacion = 'entrada_producto'
+    AND producto_entrada.id = movimiento_entrada.producto_id;

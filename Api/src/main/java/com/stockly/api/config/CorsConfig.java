@@ -4,8 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
 import java.util.List;
@@ -16,12 +16,12 @@ public class CorsConfig {
 
 
     // Permitimos desarrollo local y Firebase Hosting.
-    // Se puede sobreescribir con cors.allowed.origins en properties o variable de entorno.
+    // Para produccion, anadir dominios en cors.allowed.origins o CORS_ALLOWED_ORIGINS.
     @Value("${cors.allowed.origins:http://localhost:*,http://127.0.0.1:*,https://stockly-app-c232d.web.app}")
     private String allowedOriginsRaw;
 
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
 
@@ -35,7 +35,7 @@ public class CorsConfig {
                 .collect(Collectors.toList());
 
 
-        //  patterns porque localhost cambia de puerto en Flutter web.
+        // patterns porque localhost cambia de puerto en Flutter web.
         config.setAllowedOriginPatterns(origenes);
 
         config.setAllowedHeaders(Arrays.asList(
@@ -63,9 +63,9 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
 
-        // Aplica CORS a toda la API.
-        source.registerCorsConfiguration("/api/**", config);
+        // Aplica CORS a toda la aplicacion, incluido /actuator/health.
+        source.registerCorsConfiguration("/**", config);
 
-        return new CorsFilter(source);
+        return source;
     }
 }
